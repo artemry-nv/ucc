@@ -18,8 +18,7 @@ ENV UCC_INSTALL_DIR=${TORCH_UCC_BIN_DIR}/ucc/build
 RUN mkdir -p ${TORCH_UCC_SRC_DIR} && \
     mkdir -p ${TORCH_UCC_PKG_DIR} && \
     mkdir -p ${TORCH_UCC_BIN_DIR} && \
-    mkdir -p ${TORCH_UCC_WORKLOADS_DIR} && \
-    mkdir -p ${TORCH_UCC_PYTHON_VENV_DIR}
+    mkdir -p ${TORCH_UCC_WORKLOADS_DIR}
 
 RUN git clone ${TORCH_UCC_GITHUB_URL} ${TORCH_UCC_SRC_DIR} && \
     cd ${TORCH_UCC_SRC_DIR} && \
