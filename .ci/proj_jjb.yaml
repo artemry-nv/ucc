@@ -17,11 +17,13 @@
     parameters:
       - string:
           name: "sha1"
-          default: "master"
+          # TODO debug
+          #default: "master"
+          default: "artemry-nv/work"
           description: "Commit to be checked, set by PR"
       - bool:
           name: "build_dockers"
-          default: false
+          default: true
           description: "Rebuild docker containers"
       - string:
           name: "conf_file"
