@@ -61,32 +61,32 @@ RUN mkdir -p ${TORCH_UCC_SRC_DIR}/ucx && \
 COPY . ${TORCH_UCC_SRC_DIR}/ucc
 #==============================================================================
 # Build UCX
-RUN ${TORCH_UCC_SRC_DIR}/.ci/scripts/build_ucx.sh
+RUN ${TORCH_UCC_SRC_DIR}/ucc/.ci/scripts/build_ucx.sh
 ENV PATH=${UCX_INSTALL_DIR}/bin:${PATH}
 #==============================================================================
 # Configure Python
-RUN ${TORCH_UCC_SRC_DIR}/.ci/scripts/configure_python.sh
+RUN ${TORCH_UCC_SRC_DIR}/ucc/.ci/scripts/configure_python.sh
 #==============================================================================
 # Build UCC
-RUN ${TORCH_UCC_SRC_DIR}/.ci/scripts/build_ucc.sh
+RUN ${TORCH_UCC_SRC_DIR}/ucc/.ci/scripts/build_ucc.sh
 #==============================================================================
 # Install PyTorch
-RUN ${TORCH_UCC_SRC_DIR}/.ci/scripts/install_torch.sh
+RUN ${TORCH_UCC_SRC_DIR}/ucc/.ci/scripts/install_torch.sh
 #==============================================================================
 # Install workloads
 # TODO upstream the patches (if needed)
 WORKDIR ${TORCH_UCC_WORKLOADS_DIR}
 RUN git clone https://github.com/facebookresearch/dlrm.git && \
     cd ${TORCH_UCC_WORKLOADS_DIR}/dlrm && \
-    git apply ${TORCH_UCC_SRC_DIR}/.ci/patches/dlrm/0001-Added-torch_ucc-support.patch && \
-    git apply ${TORCH_UCC_SRC_DIR}/.ci/patches/dlrm/0002-Fixed-arg-list.patch && \
+    git apply ${TORCH_UCC_SRC_DIR}/ucc/.ci/patches/dlrm/0001-Added-torch_ucc-support.patch && \
+    git apply ${TORCH_UCC_SRC_DIR}/ucc/.ci/patches/dlrm/0002-Fixed-arg-list.patch && \
     pip3 install -r ${TORCH_UCC_WORKLOADS_DIR}/dlrm/requirements.txt && \
     pip3 install tensorboard
 RUN git clone https://github.com/facebookresearch/param.git && \
     pip3 install -r ${TORCH_UCC_WORKLOADS_DIR}/param/requirements.txt
 #==============================================================================
 # Install torch_ucc (UCC version) python module and build a wheel package
-RUN ${TORCH_UCC_SRC_DIR}/.ci/scripts/install_torch_ucc.sh
+RUN ${TORCH_UCC_SRC_DIR}/ucc/.ci/scripts/install_torch_ucc.sh
 #==============================================================================
 RUN groupadd -g 11429 swx-jenkins
 RUN adduser --no-create-home --uid 6213 --gid 11429 --home /labhome/swx-jenkins swx-jenkins
