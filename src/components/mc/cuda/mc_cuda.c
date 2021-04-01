@@ -47,24 +47,24 @@ static ucc_config_field_t ucc_mc_cuda_config_table[] = {
     {NULL}
 };
 
-static ucs_status_t
-ucc_mc_cuda_stream_req_mpool_chunk_malloc(ucs_mpool_t *mp, size_t *size_p, void **chunk_p)
+static ucc_status_t ucc_mc_cuda_stream_req_mpool_chunk_malloc(ucc_mpool_t *mp,
+                                                              size_t *size_p,
+                                                              void ** chunk_p)
 {
     ucc_status_t status;
 
-    status = CUDA_FUNC(cudaHostAlloc((void**)chunk_p, *size_p, cudaHostAllocMapped));
-    if(status != UCC_OK)  {
-        return UCS_ERR_NO_MEMORY;
-    }
-    return UCS_OK;
+    status = CUDA_FUNC(cudaHostAlloc((void**)chunk_p, *size_p,
+                       cudaHostAllocMapped));
+    return status;
 }
 
-static void ucc_mc_cuda_stream_req_mpool_chunk_free(ucs_mpool_t *mp, void *chunk)
+static void ucc_mc_cuda_stream_req_mpool_chunk_free(ucc_mpool_t *mp,
+                                                    void *       chunk)
 {
     cudaFreeHost(chunk);
 }
 
-static void ucc_mc_cuda_stream_req_init(ucs_mpool_t *mp, void *obj, void *chunk)
+static void ucc_mc_cuda_stream_req_init(ucc_mpool_t *mp, void *obj, void *chunk)
 {
     ucc_mc_cuda_stream_request_t *req = (ucc_mc_cuda_stream_request_t*) obj;
 
@@ -72,14 +72,14 @@ static void ucc_mc_cuda_stream_req_init(ucs_mpool_t *mp, void *obj, void *chunk)
                   (void**)(&req->dev_status), (void *)&req->status, 0));
 }
 
-static ucs_mpool_ops_t ucc_mc_cuda_stream_req_mpool_ops = {
+static ucc_mpool_ops_t ucc_mc_cuda_stream_req_mpool_ops = {
     .chunk_alloc   = ucc_mc_cuda_stream_req_mpool_chunk_malloc,
     .chunk_release = ucc_mc_cuda_stream_req_mpool_chunk_free,
     .obj_init      = ucc_mc_cuda_stream_req_init,
     .obj_cleanup   = NULL
 };
 
-static void ucc_mc_cuda_event_init(ucs_mpool_t *mp, void *obj, void *chunk)
+static void ucc_mc_cuda_event_init(ucc_mpool_t *mp, void *obj, void *chunk)
 {
     ucc_mc_cuda_event_t *base = (ucc_mc_cuda_event_t *) obj;
 
@@ -89,7 +89,7 @@ static void ucc_mc_cuda_event_init(ucs_mpool_t *mp, void *obj, void *chunk)
     }
 }
 
-static void ucc_mc_cuda_event_cleanup(ucs_mpool_t *mp, void *obj)
+static void ucc_mc_cuda_event_cleanup(ucc_mpool_t *mp, void *obj)
 {
     ucc_mc_cuda_event_t *base = (ucc_mc_cuda_event_t *) obj;
     if (cudaSuccess != cudaEventDestroy(base->event)) {
@@ -97,19 +97,15 @@ static void ucc_mc_cuda_event_cleanup(ucs_mpool_t *mp, void *obj)
     }
 }
 
-static ucs_mpool_ops_t ucc_mc_cuda_event_mpool_ops = {
-    .chunk_alloc   = ucs_mpool_hugetlb_malloc,
-    .chunk_release = ucs_mpool_hugetlb_free,
+static ucc_mpool_ops_t ucc_mc_cuda_event_mpool_ops = {
+    .chunk_alloc   = ucc_mpool_hugetlb_malloc,
+    .chunk_release = ucc_mpool_hugetlb_free,
     .obj_init      = ucc_mc_cuda_event_init,
     .obj_cleanup   = ucc_mc_cuda_event_cleanup,
 };
 
-//TODO implement cuda kernel
-static ucc_status_t ucc_mc_cuda_post_kernel_stream_task(uint32_t *status,
-                                                        cudaStream_t stream)
-{
-    return UCC_ERR_NOT_IMPLEMENTED;
-}
+ucc_status_t ucc_mc_cuda_post_kernel_stream_task(uint32_t *status,
+                                                 cudaStream_t stream);
 
 static ucc_status_t ucc_mc_cuda_post_driver_stream_task(uint32_t *status,
                                                         cudaStream_t stream)
@@ -118,7 +114,8 @@ static ucc_status_t ucc_mc_cuda_post_driver_stream_task(uint32_t *status,
 
     CUDADRV_FUNC(cuStreamWriteValue32(stream, status_ptr,
                                       UCC_MC_CUDA_TASK_STARTED, 0));
-    CUDADRV_FUNC(cuStreamWaitValue32(stream, status_ptr, UCC_OK,
+    CUDADRV_FUNC(cuStreamWaitValue32(stream, status_ptr,
+                                     UCC_MC_CUDA_TASK_COMPLETED,
                                      CU_STREAM_WAIT_VALUE_EQ));
     return UCC_OK;
 }
@@ -126,7 +123,7 @@ static ucc_status_t ucc_mc_cuda_post_driver_stream_task(uint32_t *status,
 static ucc_status_t ucc_mc_cuda_init()
 {
     struct cudaDeviceProp prop;
-    ucs_status_t status;
+    ucc_status_t          status;
     int device;
     CUdevice cu_dev;
     int mem_ops_attr;
@@ -143,24 +140,27 @@ static ucc_status_t ucc_mc_cuda_init()
         }
     }
 
-    CUDACHECK(cudaStreamCreateWithFlags(&ucc_mc_cuda.stream, cudaStreamNonBlocking));
+    CUDACHECK(cudaStreamCreateWithFlags(&ucc_mc_cuda.stream,
+              cudaStreamNonBlocking));
 
     /*create event pool */
-    status = ucs_mpool_init(&ucc_mc_cuda.events, 0, sizeof(ucc_mc_cuda_event_t),
+    status = ucc_mpool_init(&ucc_mc_cuda.events, 0, sizeof(ucc_mc_cuda_event_t),
                             0, UCC_CACHE_LINE_SIZE, 16, UINT_MAX,
-                            &ucc_mc_cuda_event_mpool_ops, "CUDA Event Objects");
-    if (status != UCS_OK) {
+                            &ucc_mc_cuda_event_mpool_ops, UCC_THREAD_MULTIPLE,
+                            "CUDA Event Objects");
+    if (status != UCC_OK) {
         mc_error(&ucc_mc_cuda.super, "Error to create event pool");
-        return ucs_status_to_ucc_status(status);
+        return status;
     }
 
     /* create request pool */
-    status = ucs_mpool_init(&ucc_mc_cuda.strm_reqs, 0, sizeof(ucc_mc_cuda_stream_request_t),
-                            0, UCC_CACHE_LINE_SIZE, 16, UINT_MAX,
-                            &ucc_mc_cuda_stream_req_mpool_ops, "CUDA Event Objects");
-    if (status != UCS_OK) {
+    status = ucc_mpool_init(
+        &ucc_mc_cuda.strm_reqs, 0, sizeof(ucc_mc_cuda_stream_request_t), 0,
+        UCC_CACHE_LINE_SIZE, 16, UINT_MAX, &ucc_mc_cuda_stream_req_mpool_ops,
+        UCC_THREAD_MULTIPLE, "CUDA Event Objects");
+    if (status != UCC_OK) {
         mc_error(&ucc_mc_cuda.super, "Error to create event pool");
-        return ucs_status_to_ucc_status(status);
+        return status;
     }
 
     if (cfg->strm_task_mode == UCC_MC_CUDA_TASK_KERNEL) {
@@ -177,12 +177,14 @@ static ucc_status_t ucc_mc_cuda_init()
 
         if (cfg->strm_task_mode == UCC_MC_CUDA_TASK_AUTO) {
             if (mem_ops_attr == 0) {
-                mc_warn(&ucc_mc_cuda.super, "CUDA MEM OPS are not supported or disabled");
+                mc_info(&ucc_mc_cuda.super,
+                        "CUDA MEM OPS are not supported or disabled");
                 ucc_mc_cuda.strm_task_mode = UCC_MC_CUDA_TASK_KERNEL;
                 ucc_mc_cuda.post_strm_task = ucc_mc_cuda_post_kernel_stream_task;
             }
         } else if (mem_ops_attr == 0) {
-            mc_error(&ucc_mc_cuda.super, "CUDA MEM OPS are not supported or disabled");
+            mc_error(&ucc_mc_cuda.super,
+                     "CUDA MEM OPS are not supported or disabled");
             return UCC_ERR_NOT_SUPPORTED;
         }
     }
@@ -344,7 +346,7 @@ ucc_status_t ucc_ee_cuda_task_post(void *ee_stream, void **ee_req)
     ucc_mc_cuda_event_t *cuda_event;
     ucc_status_t status;
 
-    req = ucs_mpool_get(&ucc_mc_cuda.strm_reqs);
+    req = ucc_mpool_get(&ucc_mc_cuda.strm_reqs);
     ucc_assert(req);
     req->status = UCC_MC_CUDA_TASK_POSTED;
     req->stream = (cudaStream_t)ee_stream;
@@ -355,7 +357,7 @@ ucc_status_t ucc_ee_cuda_task_post(void *ee_stream, void **ee_req)
             goto free_req;
         }
     } else {
-        cuda_event = ucs_mpool_get(&ucc_mc_cuda.events);
+        cuda_event = ucc_mpool_get(&ucc_mc_cuda.events);
         ucc_assert(cuda_event);
         CUDACHECK(cudaEventRecord(cuda_event->event, req->stream));
         CUDACHECK(cudaStreamWaitEvent(ucc_mc_cuda.stream, cuda_event->event, 0));
@@ -365,7 +367,7 @@ ucc_status_t ucc_ee_cuda_task_post(void *ee_stream, void **ee_req)
         }
         CUDACHECK(cudaEventRecord(cuda_event->event, ucc_mc_cuda.stream));
         CUDACHECK(cudaStreamWaitEvent(req->stream, cuda_event->event, 0));
-        ucs_mpool_put(cuda_event);
+        ucc_mpool_put(cuda_event);
     }
 
     *ee_req = (void *) req;
@@ -376,9 +378,9 @@ ucc_status_t ucc_ee_cuda_task_post(void *ee_stream, void **ee_req)
     return UCC_OK;
 
 free_event:
-    ucs_mpool_put(cuda_event);
+    ucc_mpool_put(cuda_event);
 free_req:
-    ucs_mpool_put(req);
+    ucc_mpool_put(req);
     return status;
 }
 
@@ -400,7 +402,7 @@ ucc_status_t ucc_ee_cuda_task_end(void *ee_req)
     req->status = UCC_OK;
 
     mc_info(&ucc_mc_cuda.super, "CUDA stream task done. req:%p", req);
-    ucs_mpool_put(req);
+    ucc_mpool_put(req);
     return UCC_OK;
 }
 
@@ -408,7 +410,7 @@ ucc_status_t ucc_ee_cuda_create_event(void **event)
 {
     ucc_mc_cuda_event_t *cuda_event;
 
-    cuda_event = ucs_mpool_get(&ucc_mc_cuda.events);
+    cuda_event = ucc_mpool_get(&ucc_mc_cuda.events);
     ucc_assert(cuda_event);
     *event = cuda_event;
     return UCC_OK;
@@ -418,7 +420,7 @@ ucc_status_t ucc_ee_cuda_destroy_event(void *event)
 {
     ucc_mc_cuda_event_t *cuda_event = event;
 
-    ucs_mpool_put(cuda_event);
+    ucc_mpool_put(cuda_event);
     return UCC_OK;
 }
 
