@@ -13,11 +13,13 @@ static const char *stream_task_modes[] = {
     [UCC_MC_CUDA_TASK_KERNEL]  = "kernel",
     [UCC_MC_CUDA_TASK_MEM_OPS] = "driver",
     [UCC_MC_CUDA_TASK_AUTO]    = "auto",
+    [UCC_MC_CUDA_TASK_LAST]    = NULL
 };
 
 static const char *task_stream_types[] = {
-    [UCC_MC_CUDA_USER_STREAM]     = "user",
-    [UCC_MC_CUDA_INTERNAL_STREAM] = "ucc",
+    [UCC_MC_CUDA_USER_STREAM]      = "user",
+    [UCC_MC_CUDA_INTERNAL_STREAM]  = "ucc",
+    [UCC_MC_CUDA_TASK_STREAM_LAST] = NULL
 };
 
 static ucc_config_field_t ucc_mc_cuda_config_table[] = {
@@ -43,6 +45,11 @@ static ucc_config_field_t ucc_mc_cuda_config_table[] = {
      "ucc  - ucc library internal stream",
      ucc_offsetof(ucc_mc_cuda_config_t, task_strm_type),
      UCC_CONFIG_TYPE_ENUM(task_stream_types)},
+
+    {"STREAM_BLOCKING_WAIT", "1",
+     "Stream is blocked until collective operation is done",
+     ucc_offsetof(ucc_mc_cuda_config_t, stream_blocking_wait),
+     UCC_CONFIG_TYPE_UINT},
 
     {NULL}
 };
@@ -105,18 +112,24 @@ static ucc_mpool_ops_t ucc_mc_cuda_event_mpool_ops = {
 };
 
 ucc_status_t ucc_mc_cuda_post_kernel_stream_task(uint32_t *status,
+                                                 int blocking_wait,
                                                  cudaStream_t stream);
 
 static ucc_status_t ucc_mc_cuda_post_driver_stream_task(uint32_t *status,
+                                                        int blocking_wait,
                                                         cudaStream_t stream)
 {
     CUdeviceptr status_ptr  = (CUdeviceptr)status;
 
+    if (blocking_wait) {
+        CUDADRV_FUNC(cuStreamWriteValue32(stream, status_ptr,
+                                          UCC_MC_CUDA_TASK_STARTED, 0));
+        CUDADRV_FUNC(cuStreamWaitValue32(stream, status_ptr,
+                                         UCC_MC_CUDA_TASK_COMPLETED,
+                                         CU_STREAM_WAIT_VALUE_EQ));
+    }
     CUDADRV_FUNC(cuStreamWriteValue32(stream, status_ptr,
-                                      UCC_MC_CUDA_TASK_STARTED, 0));
-    CUDADRV_FUNC(cuStreamWaitValue32(stream, status_ptr,
-                                     UCC_MC_CUDA_TASK_COMPLETED,
-                                     CU_STREAM_WAIT_VALUE_EQ));
+                                      UCC_MC_CUDA_TASK_COMPLETED_ACK, 0));
     return UCC_OK;
 }
 
@@ -345,6 +358,7 @@ ucc_status_t ucc_ee_cuda_task_post(void *ee_stream, void **ee_req)
     ucc_mc_cuda_stream_request_t *req;
     ucc_mc_cuda_event_t *cuda_event;
     ucc_status_t status;
+    ucc_mc_cuda_config_t *cfg = MC_CUDA_CONFIG;
 
     req = ucc_mpool_get(&ucc_mc_cuda.strm_reqs);
     ucc_assert(req);
@@ -352,7 +366,9 @@ ucc_status_t ucc_ee_cuda_task_post(void *ee_stream, void **ee_req)
     req->stream = (cudaStream_t)ee_stream;
 
     if (ucc_mc_cuda.task_strm_type == UCC_MC_CUDA_USER_STREAM) {
-        status = ucc_mc_cuda.post_strm_task(req->dev_status, req->stream);
+        status = ucc_mc_cuda.post_strm_task(req->dev_status,
+                                            cfg->stream_blocking_wait,
+                                            req->stream);
         if (status != UCC_OK) {
             goto free_req;
         }
@@ -361,7 +377,9 @@ ucc_status_t ucc_ee_cuda_task_post(void *ee_stream, void **ee_req)
         ucc_assert(cuda_event);
         CUDACHECK(cudaEventRecord(cuda_event->event, req->stream));
         CUDACHECK(cudaStreamWaitEvent(ucc_mc_cuda.stream, cuda_event->event, 0));
-        status = ucc_mc_cuda.post_strm_task(req->dev_status, ucc_mc_cuda.stream);
+        status = ucc_mc_cuda.post_strm_task(req->dev_status,
+                                            cfg->stream_blocking_wait,
+                                            ucc_mc_cuda.stream);
         if (status != UCC_OK) {
             goto free_event;
         }
@@ -388,7 +406,11 @@ ucc_status_t ucc_ee_cuda_task_query(void *ee_req)
 {
     ucc_mc_cuda_stream_request_t *req = ee_req;
 
-    if (req->status != UCC_MC_CUDA_TASK_STARTED) {
+    /* ee task might be only in POSTED, STARTED or COMPLETED_ACK state
+       COMPLETED state is used by ucc_ee_cuda_task_end function to request
+       stream unblock*/
+    ucc_assert(req->status != UCC_MC_CUDA_TASK_COMPLETED);
+    if (req->status == UCC_MC_CUDA_TASK_POSTED) {
         return UCC_INPROGRESS;
     }
     mc_info(&ucc_mc_cuda.super, "CUDA stream task started. req:%p", req);
@@ -398,11 +420,17 @@ ucc_status_t ucc_ee_cuda_task_query(void *ee_req)
 ucc_status_t ucc_ee_cuda_task_end(void *ee_req)
 {
     ucc_mc_cuda_stream_request_t *req = ee_req;
+    volatile ucc_mc_task_status_t *st = &req->status;
 
-    req->status = UCC_OK;
-
-    mc_info(&ucc_mc_cuda.super, "CUDA stream task done. req:%p", req);
+    /* can be safely ended only if it's in STARTED or COMPLETED_ACK state */
+    ucc_assert((*st != UCC_MC_CUDA_TASK_POSTED) &&
+               (*st != UCC_MC_CUDA_TASK_COMPLETED));
+    if (*st == UCC_MC_CUDA_TASK_STARTED) {
+        *st = UCC_MC_CUDA_TASK_COMPLETED;
+        while(*st != UCC_MC_CUDA_TASK_COMPLETED_ACK) { }
+    }
     ucc_mpool_put(req);
+    mc_info(&ucc_mc_cuda.super, "CUDA stream task done. req:%p", req);
     return UCC_OK;
 }
 

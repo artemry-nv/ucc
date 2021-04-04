@@ -19,6 +19,12 @@ __global__ void wait_kernel(volatile uint32_t *status) {
     do {
         st = (ucc_status_t)*status;
     } while(st != UCC_MC_CUDA_TASK_COMPLETED);
+    *status = UCC_MC_CUDA_TASK_COMPLETED_ACK;
+    return;
+}
+
+__global__ void wait_kernel_nb(volatile uint32_t *status) {
+    *status = UCC_MC_CUDA_TASK_COMPLETED_ACK;
     return;
 }
 
@@ -27,9 +33,14 @@ extern "C" {
 #endif
 
 ucc_status_t ucc_mc_cuda_post_kernel_stream_task(uint32_t *status,
+                                                 int blocking_wait,
                                                  cudaStream_t stream)
 {
-    wait_kernel<<<1, 1, 0, stream>>>(status);
+    if (blocking_wait) {
+        wait_kernel<<<1, 1, 0, stream>>>(status);
+    } else {
+        wait_kernel_nb<<<1, 1, 0, stream>>>(status);
+    }
     CUDACHECK(cudaGetLastError());
     return UCC_OK;
 }

@@ -131,8 +131,8 @@ static ucc_status_t ucc_cl_lib_init(const ucc_lib_params_t *user_params,
             ucc_error("failed to query cl lib %s attr", cl_lib->iface->super.name);
             return status;
         }
-        ucc_info("lib_prefix \"%s\": initialized component \"%s\" priority %d",
-                 config->full_prefix, cl_iface->super.name, cl_lib->priority);
+        ucc_info("lib_prefix \"%s\": initialized component \"%s\" score %d",
+                 config->full_prefix, cl_iface->super.name, cl_iface->super.score);
         if (attrs[i].super.attr.thread_mode > highest_tm) {
             highest_tm = attrs[i].super.attr.thread_mode;
         }
@@ -407,6 +407,23 @@ ucc_status_t ucc_lib_config_modify(ucc_lib_config_h config, const char *name,
 {
     return ucc_config_parser_set_value(config, ucc_lib_config_table, name,
                                        value);
+}
+
+ucc_status_t ucc_lib_get_attr(ucc_lib_h lib_p, ucc_lib_attr_t *lib_attr)
+{
+    ucc_lib_info_t *lib = (ucc_lib_info_t *)lib_p;
+
+    if (lib_attr->mask & UCC_LIB_ATTR_FIELD_THREAD_MODE) {
+        lib_attr->thread_mode = lib->attr.thread_mode;
+    }
+    if (lib_attr->mask & UCC_LIB_ATTR_FIELD_COLL_TYPES) {
+        lib_attr->coll_types = lib->attr.coll_types;
+    }
+    if ((lib_attr->mask & UCC_LIB_ATTR_FIELD_REDUCTION_TYPES) ||
+        (lib_attr->mask & UCC_LIB_ATTR_FIELD_SYNC_TYPE)) {
+        return UCC_ERR_NOT_SUPPORTED;
+    }
+    return UCC_OK;
 }
 
 ucc_status_t ucc_finalize(ucc_lib_info_t *lib)
