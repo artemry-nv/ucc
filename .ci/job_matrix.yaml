@@ -55,10 +55,10 @@ steps:
       cat /proc/1/cgroup
       cat /etc/*release*
       id
-      #find /opt/nvidia
-      #ibv_devinfo
-      #nvidia-smi
-      #nvidia-smi topo -m
+      find /opt/nvidia
+      ibv_devinfo
+      nvidia-smi
+      nvidia-smi topo -m
   #============================================================================
   - name: Run UCC tests
     containerSelector: "{name:'centos8'}"
@@ -87,8 +87,7 @@ steps:
       cat /proc/1/cgroup
       cat /etc/*release*
       id
-      find /opt/nvidia
       ibv_devinfo
       nvidia-smi
-      ${WORKSPACE}/ucc/.ci/scripts/run_dlrm_docker.sh ucc
+      ${WORKSPACE}/.ci/scripts/run_dlrm_docker.sh ucc
   #============================================================================
