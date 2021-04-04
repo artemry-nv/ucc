@@ -37,8 +37,8 @@ runs_on_dockers:
   }
 
 # bare metal
-runs_on_agents:
-  - nodeLabel: 'swx-clx01'
+#runs_on_agents:
+#  - nodeLabel: 'swx-clx01'
 
 # TODO debug
 timeout_minutes: '400'
@@ -59,6 +59,7 @@ steps:
       ibv_devinfo
       nvidia-smi
       nvidia-smi topo -m
+      sleep 20000
   #============================================================================
   - name: Run UCC tests
     containerSelector: "{name:'centos8'}"
