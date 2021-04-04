@@ -68,11 +68,21 @@ for HOST in $(cat "$HOSTFILE"); do
         ssh "${HOST}" docker stop ${DOCKER_CONTAINER_NAME}
         echo "INFO: Stopping stale docker container (name: ${DOCKER_CONTAINER_NAME}) on ${HOST}... DONE"
     fi
+done
 
-    echo "INFO: clean up docker artefacts on $HOST ..."
-    ssh "$HOST" "docker system prune --all --volumes --force"
-    echo "INFO: clean up docker artefacts on $HOST ... DONE"
+# shellcheck disable=SC2002
+HOST_LIST="$(cat "$HOSTFILE" | xargs hostlist)"
 
+pdsh -w "${HOST_LIST}" -R ssh hostname
+
+echo "INFO: clean up docker artefacts on ..."
+pdsh -w "${HOST_LIST}" -R ssh docker system prune --all --volumes --force
+echo "INFO: clean up docker artefacts on ... DONE"
+
+pdsh -w "${HOST_LIST}" -R ssh docker pull "${DOCKER_IMAGE_NAME}"
+
+# shellcheck disable=SC2013
+for HOST in $(cat "$HOSTFILE"); do
     echo "INFO: start docker container on $HOST ..."
     # shellcheck disable=SC2029
     sudo ssh "$HOST" "docker run \
@@ -93,10 +103,6 @@ done
 #sudo ssh -p "${DOCKER_SSH_PORT}" "${HEAD_NODE}" /opt/nvidia/torch-ucc/src/ucc/.ci/scripts/run_dlrm.sh ${TORCH_UCC_MODE} cpu /opt/nvidia/torch-ucc/src/.ci/configs/$HOSTNAME/hostfile.txt
 sudo ssh -p "${DOCKER_SSH_PORT}" "${HEAD_NODE}" /opt/nvidia/torch-ucc/src/ucc/.ci/scripts/run_dlrm.sh ${TORCH_UCC_MODE} gpu /opt/nvidia/torch-ucc/src/.ci/configs/$HOSTNAME/hostfile.txt
 
-# TODO debug
-# shellcheck disable=SC2013
-for HOST in $(cat "$HOSTFILE"); do
-    echo "INFO: stop docker container on $HOST ..."
-    ssh "${HOST}" docker stop ${DOCKER_CONTAINER_NAME}
-    echo "INFO: stop docker container on $HOST ... DONE"
-done
+echo "INFO: stop docker container on $HOST ..."
+pdsh -w "${HOST_LIST}" -R ssh docker stop ${DOCKER_CONTAINER_NAME}
+echo "INFO: stop docker container on $HOST ... DONE"

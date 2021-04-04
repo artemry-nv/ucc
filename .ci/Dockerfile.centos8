@@ -87,7 +87,7 @@ RUN git clone https://github.com/facebookresearch/param.git && \
     pip3 install -r ${TORCH_UCC_WORKLOADS_DIR}/param/requirements.txt
 #==============================================================================
 # Install torch_ucc (UCC version) python module and build a wheel package
-#RUN ${TORCH_UCC_SRC_DIR}/ucc/.ci/scripts/install_torch_ucc.sh
+RUN ${TORCH_UCC_SRC_DIR}/ucc/.ci/scripts/install_torch_ucc.sh
 #==============================================================================
 RUN groupadd -g 11429 swx-jenkins
 RUN adduser --no-create-home --uid 6213 --gid 11429 --home /labhome/swx-jenkins swx-jenkins
