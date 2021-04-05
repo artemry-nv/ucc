@@ -37,8 +37,8 @@ runs_on_dockers:
   }
 
 # bare metal
-#runs_on_agents:
-#  - nodeLabel: 'swx-clx01'
+runs_on_agents:
+  - nodeLabel: 'swx-clx01'
 
 # TODO debug
 timeout_minutes: '400'
