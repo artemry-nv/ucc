@@ -100,8 +100,8 @@ for HOST in $(cat "$HOSTFILE"); do
 done
 
 # TODO remove sudo
-#sudo ssh -p "${DOCKER_SSH_PORT}" "${HEAD_NODE}" /opt/nvidia/torch-ucc/src/ucc/.ci/scripts/run_dlrm.sh ${TORCH_UCC_MODE} cpu /opt/nvidia/torch-ucc/src/.ci/configs/$HOSTNAME/hostfile.txt
-sudo ssh -p "${DOCKER_SSH_PORT}" "${HEAD_NODE}" /opt/nvidia/torch-ucc/src/ucc/.ci/scripts/run_dlrm.sh ${TORCH_UCC_MODE} gpu /opt/nvidia/torch-ucc/src/.ci/configs/$HOSTNAME/hostfile.txt
+#sudo ssh -p "${DOCKER_SSH_PORT}" "${HEAD_NODE}" /opt/nvidia/torch-ucc/src/ucc/.ci/scripts/run_dlrm.sh "${TORCH_UCC_MODE}" cpu "/opt/nvidia/torch-ucc/src/ucc/.ci/configs/$HOSTNAME/hostfile.txt"
+sudo ssh -p "${DOCKER_SSH_PORT}" "${HEAD_NODE}" /opt/nvidia/torch-ucc/src/ucc/.ci/scripts/run_dlrm.sh "${TORCH_UCC_MODE}" gpu "/opt/nvidia/torch-ucc/src/ucc/.ci/configs/$HOSTNAME/hostfile.txt"
 
 echo "INFO: stop docker container on $HOST ..."
 pdsh -w "${HOST_LIST}" -R ssh docker stop ${DOCKER_CONTAINER_NAME}
