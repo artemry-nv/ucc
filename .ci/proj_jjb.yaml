@@ -74,12 +74,12 @@
 - project:
     name: proj_name
     # TODO
-    jjb_email: 'TODO'
+    jjb_email: 'artemry@nvidia.com'
     jjb_proj: 'ucc'
     # TODO tmp
     jjb_git: 'git@github.com:artemry-nv/ucc.git'
     # TODO
-    jjb_owner: 'TODO'
+    jjb_owner: 'artemry'
     jjb_jenkinsfile: '.ci/Jenkinsfile.shlib'
     jobs:
       - "{jjb_proj}"

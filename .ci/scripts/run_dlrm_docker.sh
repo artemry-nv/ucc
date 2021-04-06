@@ -99,7 +99,6 @@ for HOST in $(cat "$HOSTFILE"); do
     echo "INFO: verify docker container on $HOST ... DONE"
 done
 
-# TODO remove sudo
 #sudo ssh -p "${DOCKER_SSH_PORT}" "${HEAD_NODE}" /opt/nvidia/torch-ucc/src/ucc/.ci/scripts/run_dlrm.sh "${TORCH_UCC_MODE}" cpu "/opt/nvidia/torch-ucc/src/ucc/.ci/configs/$HOSTNAME/hostfile.txt"
 sudo ssh -p "${DOCKER_SSH_PORT}" "${HEAD_NODE}" /opt/nvidia/torch-ucc/src/ucc/.ci/scripts/run_dlrm.sh "${TORCH_UCC_MODE}" gpu "/opt/nvidia/torch-ucc/src/ucc/.ci/configs/$HOSTNAME/hostfile.txt"
 

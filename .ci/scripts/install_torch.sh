@@ -1,7 +1,6 @@
 #!/bin/bash -eEx
 set -o pipefail
 
-# TODO debug
 #cd /tmp
 #git clone https://github.com/pytorch/pytorch.git
 #cd /tmp/pytorch
@@ -12,7 +11,6 @@ set -o pipefail
 #export USE_GLOO=1
 #export USE_DISTRIBUTED=1
 #export USE_OPENCV=0
-## TODO debug
 #export USE_CUDA=1
 ##export USE_CUDA=0
 #export USE_NCCL=0
@@ -28,7 +26,6 @@ set -o pipefail
 #cd -
 #rm -rf /tmp/pytorch
 
-# TODO debug
 #conda install -y pytorch torchvision cpuonly -c pytorch-nightly
 #conda install pytorch torchvision torchaudio cudatoolkit=11.0 -c pytorch-nightly
 #conda uninstall -y pytorch torchvision

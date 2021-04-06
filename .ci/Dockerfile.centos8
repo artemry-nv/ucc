@@ -90,7 +90,4 @@ RUN ${TORCH_UCC_SRC_DIR}/ucc/.ci/scripts/install_torch_ucc.sh
 #==============================================================================
 RUN groupadd -g 11429 swx-jenkins
 RUN adduser --no-create-home --uid 6213 --gid 11429 --home /labhome/swx-jenkins swx-jenkins
-# TODO debug
-RUN groupadd -g 30 dip
-RUN adduser --no-create-home --uid 50009 --gid 30 --home /labhome/artemry artemry
 #==============================================================================
