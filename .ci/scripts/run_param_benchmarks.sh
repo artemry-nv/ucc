@@ -37,9 +37,6 @@ elif (( $index == 7 )); then
     NUMA="numactl --physcpubind=80-95 --membind=5 "
 fi
 
-export XCCL_TEAM_UCX_NET_DEVICES=$UCX_NET_DEVICES
-export XCCL_TEAM_HIER_NET_DEVICES=$UCX_NET_DEVICES
-
 EXE="$NUMA python /workspace/param/train/comms/pt/comms.py \
             --master-ip $MASTER_ADDR \
             --master-port $MASTER_PORT $@"

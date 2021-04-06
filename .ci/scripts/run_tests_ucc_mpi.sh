@@ -8,10 +8,7 @@ SCRIPT_DIR="$(
 cd "${SCRIPT_DIR}"
 . "${SCRIPT_DIR}/env.sh"
 
-CPU_GPU_MODE="$1"
-HOSTFILE="$2"
-
-export CPU_GPU_MODE
+HOSTFILE="$1"
 
 if [ -z "$HOSTFILE" ]; then
     echo "ERROR: HOSTFILE is not specified"
@@ -59,5 +56,4 @@ mpirun \
     -x PATH \
     -x LD_LIBRARY_PATH \
     -x MASTER_ADDR \
-    -x CPU_GPU_MODE \
-    /opt/nvidia/torch-ucc/src/ucc/.ci/scripts/run_dlrm_s_pytorch.sh
+    /opt/nvidia/torch-ucc/src/ucc/build/test/mpi/ucc_test_mpi

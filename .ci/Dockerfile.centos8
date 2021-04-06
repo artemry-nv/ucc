@@ -74,7 +74,6 @@ RUN ${TORCH_UCC_SRC_DIR}/ucc/.ci/scripts/build_ucc.sh
 RUN ${TORCH_UCC_SRC_DIR}/ucc/.ci/scripts/install_torch.sh
 #==============================================================================
 # Install workloads
-# TODO upstream the patches (if needed)
 WORKDIR ${TORCH_UCC_WORKLOADS_DIR}
 RUN git clone https://github.com/facebookresearch/dlrm.git && \
     cd ${TORCH_UCC_WORKLOADS_DIR}/dlrm && \

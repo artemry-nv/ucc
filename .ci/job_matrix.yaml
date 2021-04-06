@@ -75,16 +75,27 @@ steps:
       pip3 list | grep torch
       ${TORCH_UCC_SRC_DIR}/ucc/.ci/scripts/run_tests_torch_ucc.sh
   #============================================================================
+  - name: Run docker containers
+    agentSelector: "{nodeLabel: 'swx-clx01'}"
+    run: |
+      echo "INFO: Run docker containers"
+      ${WORKSPACE}/.ci/scripts/run_docker.sh
+  #============================================================================
+  - name: Run UCC MPI tests
+    agentSelector: "{nodeLabel: 'swx-clx01'}"
+    run: |
+      echo "INFO: Run UCC MPI tests"
+      ${WORKSPACE}/.ci/scripts/run_tests_ucc_mpi_docker.sh
+  #============================================================================
   - name: Run DLRM tests (UCC/GPU)
     agentSelector: "{nodeLabel: 'swx-clx01'}"
     run: |
       echo "INFO: Run DLRM tests (UCC/GPU)"
-      hostname
-      printenv
-      cat /proc/1/cgroup
-      cat /etc/*release*
-      id
-      ibv_devinfo
-      nvidia-smi
-      ${WORKSPACE}/.ci/scripts/run_dlrm_docker.sh ucc
+      ${WORKSPACE}/.ci/scripts/run_dlrm_docker.sh
+  #============================================================================
+  - name: Stop docker containers
+    agentSelector: "{nodeLabel: 'swx-clx01'}"
+    run: |
+      echo "INFO: Stop docker containers"
+      ${WORKSPACE}/.ci/scripts/stop_docker.sh
   #============================================================================
