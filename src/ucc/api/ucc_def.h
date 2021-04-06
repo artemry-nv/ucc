@@ -13,14 +13,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#ifdef __cplusplus
-# define BEGIN_C_DECLS  extern "C" {
-# define END_C_DECLS    }
-#else
-# define BEGIN_C_DECLS
-# define END_C_DECLS
-#endif
-
 /**
  * @ingroup UCC_LIB_INIT_DT
  * @brief UCC library handle
@@ -142,28 +134,15 @@ typedef void *ucc_context_addr_t;
  * @ingroup UCC_TEAM_DT
  */
 typedef size_t ucc_context_addr_len_t;
+
+
+/**
+ * @ingroup UCC_EVENTS_DT
+ * @brief UCC execution engine handle
+ *
+ * The UCC execution engine handle is an opaque handle created by the library representing
+ * the execution context and related queues.
+ */
+typedef struct ucc_ee*      ucc_ee_h;
+
 #endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

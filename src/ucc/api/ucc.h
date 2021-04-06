@@ -1,7 +1,7 @@
 /**
  * @file ucc.h
  * @date 2020
- * @copyright Copyright (C) Mellanox Technologies Ltd. 2020.  ALL RIGHTS RESERVED.
+ * @copyright Copyright (C) Mellanox Technologies Ltd. 2020-2021.  ALL RIGHTS RESERVED.
  * @copyright Copyright (C) Huawei Technologies Co., Ltd. 2020.  ALL RIGHTS RESERVED.
  *
  * See file LICENSE for terms.
@@ -85,6 +85,20 @@ BEGIN_C_DECLS
   */
 
 /**
+  * @defgroup UCC_EVENT_DT Events and Triggered operations' datastructures
+  * @{
+  *  Data-structures associated with event-driven collective execution
+  * @}
+  */
+
+/**
+  * @defgroup UCC_EVENT Events and Triggered Operations
+  * @{
+  *  Event-driven Collective Execution
+  * @}
+  */
+
+/**
   * @defgroup UCC_UTILS Utility Operations
   * @{
   *  Helper functions to be used across the library
@@ -151,16 +165,23 @@ typedef enum {
  *
  */
 typedef enum {
-    UCC_COLL_TYPE_BARRIER            = UCC_BIT(0),
-    UCC_COLL_TYPE_BCAST              = UCC_BIT(1),
+    UCC_COLL_TYPE_ALLGATHER          = UCC_BIT(0),
+    UCC_COLL_TYPE_ALLGATHERV         = UCC_BIT(1),
     UCC_COLL_TYPE_ALLREDUCE          = UCC_BIT(2),
-    UCC_COLL_TYPE_REDUCE             = UCC_BIT(3),
-    UCC_COLL_TYPE_ALLTOALL           = UCC_BIT(4),
-    UCC_COLL_TYPE_ALLGATHER          = UCC_BIT(5),
-    UCC_COLL_TYPE_GATHER             = UCC_BIT(6),
-    UCC_COLL_TYPE_SCATTER            = UCC_BIT(7),
-    UCC_COLL_TYPE_FANIN              = UCC_BIT(8),
-    UCC_COLL_TYPE_FANOUT             = UCC_BIT(9)
+    UCC_COLL_TYPE_ALLTOALL           = UCC_BIT(3),
+    UCC_COLL_TYPE_ALLTOALLV          = UCC_BIT(4),
+    UCC_COLL_TYPE_BARRIER            = UCC_BIT(5),
+    UCC_COLL_TYPE_BCAST              = UCC_BIT(6),
+    UCC_COLL_TYPE_FANIN              = UCC_BIT(7),
+    UCC_COLL_TYPE_FANOUT             = UCC_BIT(8),
+    UCC_COLL_TYPE_GATHER             = UCC_BIT(9),
+    UCC_COLL_TYPE_GATHERV            = UCC_BIT(10),
+    UCC_COLL_TYPE_REDUCE             = UCC_BIT(11),
+    UCC_COLL_TYPE_REDUCE_SCATTER     = UCC_BIT(12),
+    UCC_COLL_TYPE_REDUCE_SCATTERV    = UCC_BIT(13),
+    UCC_COLL_TYPE_SCATTER            = UCC_BIT(14),
+    UCC_COLL_TYPE_SCATTERV           = UCC_BIT(15),
+    UCC_COLL_TYPE_LAST
 } ucc_coll_type_t;
 
 /**
@@ -592,10 +613,10 @@ typedef enum {
  *  @ingroup UCC_CONTEXT_DT
  */
 enum ucc_context_params_field {
-    UCC_CONTEXT_PARAM_FIELD_TYPE                   = UCC_BIT(0),
-    UCC_CONTEXT_PARAM_FIELD_COLL_SYNC_TYPE         = UCC_BIT(1),
-    UCC_CONTEXT_PARAM_FIELD_COLL_OOB               = UCC_BIT(2),
-    UCC_CONTEXT_PARAM_FIELD_ID                     = UCC_BIT(3)
+    UCC_CONTEXT_PARAM_FIELD_TYPE              = UCC_BIT(0),
+    UCC_CONTEXT_PARAM_FIELD_SYNC_TYPE         = UCC_BIT(1),
+    UCC_CONTEXT_PARAM_FIELD_OOB               = UCC_BIT(2),
+    UCC_CONTEXT_PARAM_FIELD_ID                = UCC_BIT(3)
 };
 
 /**
@@ -603,10 +624,10 @@ enum ucc_context_params_field {
  *  @ingroup UCC_CONTEXT_DT
  */
 enum ucc_context_attr_field {
-    UCC_CONTEXT_ATTR_FIELD_TYPE                   = UCC_BIT(0),
-    UCC_CONTEXT_ATTR_FIELD_COLL_SYNC_TYPE         = UCC_BIT(1),
-    UCC_CONTEXT_ATTR_FIELD_CONTEXT_ADDR           = UCC_BIT(2),
-    UCC_CONTEXT_ATTR_FIELD_CONTEXT_ADDR_LEN       = UCC_BIT(3)
+    UCC_CONTEXT_ATTR_FIELD_TYPE               = UCC_BIT(0),
+    UCC_CONTEXT_ATTR_FIELD_SYNC_TYPE          = UCC_BIT(1),
+    UCC_CONTEXT_ATTR_FIELD_CTX_ADDR           = UCC_BIT(2),
+    UCC_CONTEXT_ATTR_FIELD_CTX_ADDR_LEN       = UCC_BIT(3)
 };
 
 /**
@@ -615,7 +636,7 @@ enum ucc_context_attr_field {
  * @brief OOB collective operation for creating the context
  */
 typedef struct ucc_context_oob_coll {
-    int             (*allgather)(void *src_buf, void *recv_buf, size_t size,
+    ucc_status_t    (*allgather)(void *src_buf, void *recv_buf, size_t size,
                                  void *allgather_info,  void **request);
     ucc_status_t    (*req_test)(void *request);
     ucc_status_t    (*req_free)(void *request);
@@ -647,7 +668,7 @@ typedef struct ucc_context_oob_coll {
  */
 typedef struct ucc_context_params {
     uint64_t                mask;
-    ucc_context_type_t      ctx_type;
+    ucc_context_type_t      type;
     ucc_coll_sync_type_t    sync_type;
     ucc_context_oob_coll_t  oob;
     uint64_t                ctx_id;
@@ -674,7 +695,7 @@ typedef struct ucc_context_params {
  */
 typedef struct ucc_context_attr {
     uint64_t                mask;
-    ucc_context_type_t      ctx_type;
+    ucc_context_type_t      type;
     ucc_coll_sync_type_t    sync_type;
     ucc_context_addr_t      ctx_addr;
     ucc_context_addr_len_t  ctx_addr_len;
@@ -764,10 +785,10 @@ void ucc_context_config_print(const ucc_context_config_h config, FILE *stream,
  *  @ingroup UCC_CONTEXT
  *
  *  @brief The @ref ucc_context_config_modify routine modifies the runtime configuration
- *                  of UCC context (for a given CLS)
+ *                  of UCC context (optionally for a given CLS)
  *
  *  @param [in] config   Pointer to the configuration descriptor to be modified
- *  @param [in] cls      Comma separated list of CLS
+ *  @param [in] cls      Comma separated list of CLS or NULL. If NULL then core context config is modified.
  *  @param [in] name     Configuration variable to be modified
  *  @param [in] value    Configuration value to set
  *
@@ -803,11 +824,12 @@ ucc_status_t ucc_context_config_modify(ucc_context_config_h config,
  *  @b Description
  *
  *  The ucc_context_create creates the context and ucc_context_destroy
- *  releases the resources and destroys the context state. The creation of context
- *  does not necessarily indicate its readiness to be used for collective or other
- *  group operations. On success, the context handle will be created and ucc_status_t will return
- *  UCC_OK. On error, the library object will not be created and corresponding
- *  error code as defined by ucc_status_t is returned.
+ *  releases the resources and destroys the context state. The creation of
+ *  context does not necessarily indicate its readiness to be used for
+ *  collective or other group operations. On success, the context handle will be
+ *  created and ucc_status_t will return UCC_OK. On error, the library object
+ *  will not be created and corresponding error code as defined by ucc_status_t
+ *  is returned.
  *
  *  @endparblock
  *
@@ -909,7 +931,8 @@ enum ucc_team_params_field {
     UCC_TEAM_PARAM_FIELD_OOB                    = UCC_BIT(7),
     UCC_TEAM_PARAM_FIELD_P2P_CONN               = UCC_BIT(8),
     UCC_TEAM_PARAM_FIELD_MEM_PARAMS             = UCC_BIT(9),
-    UCC_TEAM_PARAM_FIELD_EP_MAP                 = UCC_BIT(10)
+    UCC_TEAM_PARAM_FIELD_EP_MAP                 = UCC_BIT(10),
+    UCC_TEAM_PARAM_FIELD_ID                     = UCC_BIT(11),
 };
 
 /**
@@ -1088,6 +1111,7 @@ typedef struct ucc_team_params {
     ucc_team_p2p_conn_t     p2p_conn;
     ucc_mem_map_params_t    mem_params;
     ucc_ep_map_t            ep_map;
+    uint64_t                id;
 } ucc_team_params_t;
 
 /**
@@ -1189,9 +1213,13 @@ ucc_status_t ucc_team_create_test(ucc_team_h team);
  *
  *  @b Description
  *
- *  @ref ucc_team_destroy is a blocking collective operation to release all
+ *  @ref ucc_team_destroy is a nonblocking collective operation to release all
  *  resources associated with the team handle, and destroy the team handle. It is
  *  invalid to post a collective operation after the ucc_team_destroy operation.
+ *  It is invalid to call @ref ucc_team_destroy operation while @ref
+ *  ucc_team_create_post is in progress. It is the user's responsibility to ensure
+ *  there is one outstanding @ref ucc_team_create_post or @ref ucc_team_destroy
+ *  operation is in progress.
  *
  *
  *  @endparblock
@@ -1333,25 +1361,40 @@ ucc_status_t ucc_team_get_all_eps(ucc_team_h team, uint64_t **ep,
  *  @ingroup UCC_COLLECTIVES_DT
  */
 typedef enum {
-    UCC_COLL_BUFF_FLAG_IN_PLACE             = UCC_BIT(0),
-    UCC_COLL_BUFF_FLAG_PERSISTENT           = UCC_BIT(1),
-    UCC_COLL_BUFF_FLAG_COUNT_64BIT          = UCC_BIT(2),
-    UCC_COLL_BUFF_FLAG_DISPLACEMENTS_64BIT  = UCC_BIT(3)
-} ucc_coll_buffer_flags_t;
+    UCC_COLL_ARGS_FLAG_IN_PLACE             = UCC_BIT(0),
+    UCC_COLL_ARGS_FLAG_PERSISTENT           = UCC_BIT(1),
+    UCC_COLL_ARGS_FLAG_COUNT_64BIT          = UCC_BIT(2),
+    UCC_COLL_ARGS_FLAG_DISPLACEMENTS_64BIT  = UCC_BIT(3),
+    UCC_COLL_ARGS_FLAG_CONTIG_SRC_BUFFER    = UCC_BIT(4),
+    UCC_COLL_ARGS_FLAG_CONTIG_DST_BUFFER    = UCC_BIT(5)
+} ucc_coll_args_flags_t;
 
 /**
  *  @ingroup UCC_COLLECTIVES_DT
  */
+typedef enum ucc_memory_type {
+    UCC_MEMORY_TYPE_HOST,         /*!< Default system memory */
+    UCC_MEMORY_TYPE_CUDA,         /*!< NVIDIA CUDA memory */
+    UCC_MEMORY_TYPE_CUDA_MANAGED, /*!< NVIDIA CUDA managed memory */
+    UCC_MEMORY_TYPE_ROCM,         /*!< AMD ROCM memory */
+    UCC_MEMORY_TYPE_ROCM_MANAGED, /*!< AMD ROCM managed system memory */
+    UCC_MEMORY_TYPE_LAST,
+    UCC_MEMORY_TYPE_UNKNOWN = UCC_MEMORY_TYPE_LAST
+} ucc_memory_type_t;
+
+typedef struct ucc_coll_buffer_info_v {
+    void             *buffer;
+    ucc_count_t      *counts;
+    ucc_aint_t       *displacements;
+    ucc_datatype_t    datatype;
+    ucc_memory_type_t mem_type;
+} ucc_coll_buffer_info_v_t;
+
 typedef struct ucc_coll_buffer_info {
-    void            *src_buffer;
-    ucc_count_t     *src_counts;
-    ucc_aint_t      *src_displacements;
-    void            *dst_buffer;
-    ucc_count_t     *dst_counts;
-    ucc_aint_t      *dst_displacements;
-    ucc_datatype_t  src_datatype;
-    ucc_datatype_t  dst_datatype;
-    uint64_t        flags;
+    void             *buffer;
+    ucc_count_t       count;
+    ucc_datatype_t    datatype;
+    ucc_memory_type_t mem_type;
 } ucc_coll_buffer_info_t;
 
 /**
@@ -1365,14 +1408,11 @@ typedef enum {
 /**
  *  @ingroup UCC_COLLECTIVES_DT
  */
-enum ucc_coll_op_args_field {
-    UCC_COLL_ARG_FIELD_COLL_TYPE                       = UCC_BIT(0),
-    UCC_COLL_ARG_FIELD_BUFFER_INFO                     = UCC_BIT(1),
-    UCC_COLL_ARG_FIELD_PREDEFINED_REDUCTIONS           = UCC_BIT(2),
-    UCC_COLL_ARG_FIELD_USERDEFINED_REDUCTIONS          = UCC_BIT(3),
-    UCC_COLL_ARG_FIELD_ERROR_TYPE                      = UCC_BIT(4),
-    UCC_COLL_ARG_FIELD_TAG                             = UCC_BIT(5),
-    UCC_COLL_ARG_FIELD_ROOT                            = UCC_BIT(6)
+enum ucc_coll_args_field {
+    UCC_COLL_ARGS_FIELD_FLAGS                           = UCC_BIT(0),
+    UCC_COLL_ARGS_FIELD_PREDEFINED_REDUCTIONS           = UCC_BIT(1),
+    UCC_COLL_ARGS_FIELD_USERDEFINED_REDUCTIONS          = UCC_BIT(2),
+    UCC_COLL_ARGS_FIELD_TAG                             = UCC_BIT(3),
 };
 
 /**
@@ -1384,32 +1424,41 @@ enum ucc_coll_op_args_field {
  *
  *  @b Description
  *  @n @n
- *  @ref ucc_coll_op_args_t defines the parameters that can be used to customize
+ *  @ref ucc_coll_args_t defines the parameters that can be used to customize
  *  the collective operation. The "mask" bit array fields are defined by @ref
- *  ucc_coll_op_args_field. The bits in "mask" bit array is defined by @ref
- *  ucc_coll_op_args_field, which correspond to fields in structure @ref
- *  ucc_coll_op_args_t. The valid fields of the structure are specified by
- *  setting the corresponding bit to "1" in the bit-array "mask". When bits
- *  corresponding to the fields are not set, the fields are not defined.
+ *  ucc_coll_args_field. The bits in "mask" bit array is defined by @ref
+ *  ucc_coll_args_field, which correspond to fields in structure @ref
+ *  ucc_coll_args_t. The valid fields of the structure are specified by
+ *  setting the corresponding bit to "1" in the bit-array "mask".
  *  @n @n
- *  The collective operation is selected by field "coll_type". If allreduce or
- *  reduce operation is selected, the type of reduction is selected by the field
- *  "predefined_reduction_op" or "custom_reduction_op". For unordered collective
+ *  The collective operation is selected by field "coll_type" which must be always
+ *  set by user. If allreduce or *  reduce operation is selected, the type of
+ *  reduction is selected by the field *  "predefined_reduction_op" or
+ *  "custom_reduction_op". For unordered collective
  *  operations, the user-provided "tag" value orders the collective operation.
  *  For rooted collective operations such as reduce, scatter, gather, fan-in, and
- *  fan-out, the "root" field provides the participant endpoint value. The user
+ *  fan-out, the "root" field  must be provided by user and specify the participant
+ *  endpoint value. The user
  *  can request either "local" or "global" error information using the
  *  "error_type" field.
  *
+ *  @n @n
+ *  Information about user buffers used for collective operation must be specified
+ *  according to the "coll_type".
  *  @endparblock
  *
  */
-typedef struct ucc_coll_op_args {
+typedef struct ucc_coll_args {
     uint64_t                        mask;
-    ucc_coll_type_t                 coll_type; /*!< Type of collective operation
-                                                */
-    ucc_coll_buffer_info_t          buffer_info; /*!< Buffer info for the
-                                                   collective */
+    ucc_coll_type_t                 coll_type; /*!< Type of collective operation */
+    union {
+        ucc_coll_buffer_info_t      info;   /*!< Buffer info for the collective */
+        ucc_coll_buffer_info_v_t    info_v; /*!< Buffer info for the collective */
+    } src;
+    union {
+        ucc_coll_buffer_info_t      info;   /*!< Buffer info for the collective */
+        ucc_coll_buffer_info_v_t    info_v; /*!< Buffer info for the collective */
+    } dst;
     struct {
         ucc_reduction_op_t          predefined_op; /*!< Reduction operation, if
                                                         reduce or all-reduce
@@ -1418,11 +1467,12 @@ typedef struct ucc_coll_op_args {
                                                     reduction operation */
         void                       *custom_dtype;
     } reduce;
-    ucc_error_type_t                error_type; /*!< Error type */
-    ucc_coll_id_t                   tag; /*!< Used for ordering collectives */
+    uint64_t                        flags;
     uint64_t                        root; /*!< Root endpoint for rooted
                                              collectives */
-} ucc_coll_op_args_t;
+    ucc_error_type_t                error_type; /*!< Error type */
+    ucc_coll_id_t                   tag; /*!< Used for ordering collectives */
+} ucc_coll_args_t;
 
 /**
  *  @ingroup UCC_COLLECTIVES
@@ -1451,7 +1501,7 @@ typedef struct ucc_coll_op_args {
  *
  *  @return Error code as defined by ucc_status_t
  */
-ucc_status_t ucc_collective_init(ucc_coll_op_args_t *coll_args,
+ucc_status_t ucc_collective_init(ucc_coll_args_t *coll_args,
                                  ucc_coll_req_h *request, ucc_team_h team);
 
 /**
@@ -1501,7 +1551,7 @@ ucc_status_t ucc_collective_post(ucc_coll_req_h request);
  *
  *  @return Error code as defined by ucc_status_t
  */
-ucc_status_t ucc_collective_init_and_post(ucc_coll_op_args_t *coll_args,
+ucc_status_t ucc_collective_init_and_post(ucc_coll_args_t *coll_args,
                                           ucc_coll_req_h *request,
                                           ucc_team_h team);
 
@@ -1547,6 +1597,219 @@ static inline ucc_status_t ucc_collective_test(ucc_coll_req_h request)
  *  @return Error code as defined by ucc_status_t
  */
 ucc_status_t ucc_collective_finalize(ucc_coll_req_h request);
+
+/**
+ * @ingroup UCC_EVENT_DT
+ *
+ */
+typedef enum ucc_event_type {
+    UCC_EVENT_COLLECTIVE_POST     = UCC_BIT(0),
+    UCC_EVENT_COLLECTIVE_COMPLETE = UCC_BIT(1),
+    UCC_EVENT_COMPUTE_COMPLETE    = UCC_BIT(2),
+    UCC_EVENT_OVERFLOW            = UCC_BIT(3)
+} ucc_event_type_t;
+
+/**
+ * @ingroup UCC_EVENT_DT
+ *
+ */
+typedef enum ucc_ee_type {
+    UCC_EE_CUDA_STREAM = 0,
+    UCC_EE_CPU_THREAD,
+    UCC_EE_LAST,
+    UCC_EE_UNKNOWN = UCC_EE_LAST
+} ucc_ee_type_t;
+
+/**
+ * @ingroup UCC_EVENT_DT
+ *
+ */
+typedef struct ucc_event {
+    ucc_event_type_t ev_type;
+    void *           ev_context;
+    size_t           ev_context_size;
+    ucc_coll_req_h   req;
+} ucc_ev_t;
+
+/**
+ * @ingroup UCC_EVENT_DT
+ *
+ */
+typedef struct ucc_ee_params {
+    ucc_ee_type_t ee_type;
+    void *        ee_context;
+    size_t        ee_context_size;
+} ucc_ee_params_t;
+
+/**
+ * @ingroup UCC_EVENT
+ *
+ * @brief The routine creates the execution context for collective operations.
+ *
+ * @param [in] team     team handle
+ * @param [in] params   user provided params to customize the execution engine
+ * @param [out] ee      execution engine handle
+ *
+ * @parblock
+ *
+ * @b Description
+ *
+ * @ref ucc_ee_create creates the execution engine. It enables event-driven
+ * collective execution. @ref ucc_ee_params_t allows the execution engine to be
+ * configured to abstract either GPU and CPU threads. The execution engine is
+ * created and coupled with the team. There can be many execution engines
+ * coupled to the team. However, attaching the same execution engine to multiple
+ * teams is not allowed. The execution engine is created after the team is
+ * created and destroyed before the team is destroyed. It is the user's
+ * responsibility to destroy the execution engines before the team. If the team
+ * is destroyed before the execution engine is destroyed, the result is
+ * undefined.
+ *
+ * @endparblock
+ *
+ * @return Error code as defined by ucc_status_t
+ */
+ucc_status_t ucc_ee_create(ucc_team_h team, const ucc_ee_params_t *params,
+                           ucc_ee_h *ee);
+
+/**
+ * @ingroup UCC_EVENT
+ *
+ * @brief The routine destroys the execution context created for collective operations.
+ *
+ * @param [in] ee   Execution engine handle
+ *
+ * @parblock
+ *
+ * @b Description
+ *
+ * @ref ucc_ee_destroy releases the resources attached with the
+ * execution engine and destroys the execution engine. All events and triggered
+ * operations related to this ee are invalid after the destroy operation. To
+ * avoid race between the creation and destroying the execution engine, for a
+ * given ee, the @ref ucc_ee_create and @ref ucc_ee_destroy must be invoked from
+ * the same thread.
+ *
+ * @endparblock
+ *
+ * @return Error code as defined by ucc_status_t
+ */
+ucc_status_t ucc_ee_destroy(ucc_ee_h ee);
+
+/**
+ * @ingroup UCC_EVENT
+ *
+ * @brief The routine gets the event from the event queue.
+ *
+ * @param [in]  ee        execution engine handle
+ * @param [out] ev        Event structure fetched from the event queue
+ *
+ * @parblock
+ *
+ * @b Description
+ *
+ * @ref ucc_ee_get_event fetches the events from the execution engine. If there
+ * are no events posted on the ee, it returns immediately without waiting for
+ * events. All events must be acknowledged using the @ref ucc_ee_ack_event
+ * interface. The event acknowledged is destroyed by the library. An event
+ * fetched with @ref ucc_ee_get_event but not acknowledged might consume
+ * resources in the library.
+ *
+ * @endparblock
+ *
+ * @return Error code as defined by ucc_status_t
+ */
+ucc_status_t ucc_ee_get_event(ucc_ee_h ee, ucc_ev_t **ev);
+
+/**
+ * @ingroup UCC_EVENT
+ *
+ * @brief The routine acks the events from the event queue.
+ *
+ * @param [in]  ee      execution engine handle
+ * @param [in]  ev      Event to be acked
+ *
+ * @parblock
+ *
+ * @b Description
+ *
+ * An event acknowledged by the user using @ref ucc_ee_ack_event is destroyed by
+ * the library. Any triggered operations on the event should be completed before
+ * calling this interface. The behavior is undefined if the user acknowledges
+ * the event while waiting on the event or triggering operations on the event.
+ *
+ * @endparblock
+ *
+ * @return Error code as defined by ucc_status_t
+ */
+ucc_status_t ucc_ee_ack_event(ucc_ee_h ee, ucc_ev_t *ev);
+
+/**
+ * @ingroup UCC_EVENT
+ *
+ * @brief The routine to set the event to the tail of the queue.
+ *
+ * @param [in]  ee        execution engine handle
+ * @param [in]  ev        Event structure fetched from the event queue
+ *
+ * @parblock
+ *
+ * @b Description
+ *
+ * @ref ucc_ee_set_event sets the event on the execution engine. If the
+ * operations are waiting on the event when the user sets the event, the
+ * operations are launched. The events created by the user need to be destroyed
+ * by the user.
+ *
+ * @endparblock
+ *
+ * @return Error code as defined by ucc_status_t
+ */
+ucc_status_t ucc_ee_set_event(ucc_ee_h ee, ucc_ev_t *ev);
+
+/**
+ * @ingroup UCC_EVENT
+ *
+ * @brief The routine blocks the calling thread until there is an event on the queue.
+ *
+ * @param [in]  ee        execution engine handle
+ * @param [out] ev        Event structure fetched from the event queue
+ *
+ * @parblock
+ *
+ * @b Description
+ *
+ * The user thread invoking the @ref ucc_ee_wait interface is blocked until an
+ * event is posted to the execution engine.
+ *
+ * @endparblock
+ *
+ * @return Error code as defined by ucc_status_t
+ */
+ucc_status_t ucc_ee_wait(ucc_ee_h ee, ucc_ev_t *ev);
+
+/**
+ * @ingroup UCC_EVENT
+ *
+ * @brief The routine posts the collective operation on the execution engine, which is
+ * launched on the event.
+ *
+ * @param [in]  ee          execution engine handle
+ * @param [in]  ee_event    Event triggering the post operation
+ *
+ * @parblock
+ *
+ * @b Description
+ *
+ * @ref ucc_collective_triggered_post allow the users to schedule a collective
+ * operation that executes in the future when an event occurs on the execution
+ * engine.
+ *
+ * @endparblock
+ *
+ * @return Error code as defined by ucc_status_t
+ */
+ucc_status_t ucc_collective_triggered_post(ucc_ee_h ee, ucc_ev_t *ee_event);
 
 END_C_DECLS
 #endif

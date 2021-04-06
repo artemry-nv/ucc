@@ -7,7 +7,15 @@
 #include "tl_ucp.h"
 #include "tl_ucp_tag.h"
 #include "tl_ucp_coll.h"
+#include "tl_ucp_ep.h"
 #include <limits.h>
+
+static ucc_mpool_ops_t ucc_tl_ucp_req_mpool_ops = {
+    .chunk_alloc   = ucc_mpool_hugetlb_malloc,
+    .chunk_release = ucc_mpool_hugetlb_free,
+    .obj_init      = NULL,
+    .obj_cleanup   = NULL
+};
 
 UCC_CLASS_INIT_FUNC(ucc_tl_ucp_context_t,
                     const ucc_base_context_params_t *params,
@@ -28,7 +36,6 @@ UCC_CLASS_INIT_FUNC(ucc_tl_ucp_context_t,
                               params->context);
     memcpy(&self->cfg, tl_ucp_config, sizeof(*tl_ucp_config));
     self->ep_close_state.close_req = NULL;
-    self->ep_close_state.ep        = 0;
     status = ucp_config_read(params->prefix, NULL, &ucp_config);
     if (UCS_OK != status) {
         tl_error(self->super.super.lib, "failed to read ucp configuration, %s",
@@ -39,7 +46,7 @@ UCC_CLASS_INIT_FUNC(ucc_tl_ucp_context_t,
 
     ucp_params.field_mask =
         UCP_PARAM_FIELD_FEATURES | UCP_PARAM_FIELD_TAG_SENDER_MASK;
-    ucp_params.features        = UCP_FEATURE_TAG | UCP_FEATURE_RMA;
+    ucp_params.features        = UCP_FEATURE_TAG;
     ucp_params.tag_sender_mask = UCC_TL_UCP_TAG_SENDER_MASK;
 
     if (params->estimated_num_ppn > 0) {
@@ -98,8 +105,9 @@ UCC_CLASS_INIT_FUNC(ucc_tl_ucp_context_t,
     self->ucp_worker  = ucp_worker;
     self->worker_address = NULL;
 
-    ucc_status = ucc_mpool_init(&self->req_mp, sizeof(ucc_tl_ucp_task_t),
-                                UCC_CACHE_LINE_SIZE, 8, UINT_MAX, NULL, NULL,
+    ucc_status = ucc_mpool_init(&self->req_mp, 0, sizeof(ucc_tl_ucp_task_t), 0,
+                                UCC_CACHE_LINE_SIZE, 8, UINT_MAX,
+                                &ucc_tl_ucp_req_mpool_ops, params->thread_mode,
                                 "tl_ucp_req_mp");
     if (UCC_OK != ucc_status) {
         tl_error(self->super.super.lib,
@@ -113,6 +121,7 @@ UCC_CLASS_INIT_FUNC(ucc_tl_ucp_context_t,
         tl_error(self->super.super.lib, "failed to register progress function");
         goto err_thread_mode;
     }
+    self->ep_hash = kh_init(tl_ucp_ep_hash);
     tl_info(self->super.super.lib, "initialized tl context: %p", self);
     return UCC_OK;
 
@@ -124,18 +133,90 @@ err_cfg:
     return ucc_status;
 }
 
+static void ucc_tl_ucp_context_barrier(ucc_tl_ucp_context_t *ctx,
+                                       ucc_context_oob_coll_t *oob)
+{
+    char        *rbuf = ucc_malloc(sizeof(char*) * oob->participants,
+                                   "tmp_barrier");
+    ucc_status_t status;
+    char         sbuf;
+    void        *req;
+
+    if (!rbuf) {
+        tl_error(ctx->super.super.lib,
+                 "failed to allocate %zd bytes for tmp barrier array",
+                 sizeof(char*) * oob->participants);
+        return;
+    }
+    if (UCC_OK == oob->allgather(&sbuf, rbuf, sizeof(char), oob->coll_info,
+                                 &req)) {
+        ucc_assert(req);
+        while (UCC_OK != (status = oob->req_test(req))) {
+            if (status < 0) {
+                tl_error(ctx->super.super.lib, "failed to test oob req");
+                break;
+            }
+        }
+        oob->req_free(req);
+    }
+    ucc_free(rbuf);
+}
+
 UCC_CLASS_CLEANUP_FUNC(ucc_tl_ucp_context_t)
 {
+    ucc_status_t status;
     tl_info(self->super.super.lib, "finalizing tl context: %p", self);
+    while (UCC_OK != (status = ucc_tl_ucp_close_eps(self))) {
+        //TODO can we hang the runtime this way ?
+        if (status < 0) {
+            tl_error(self->super.super.lib,
+                     "failed to close ucp endpoint: %s",
+                     ucc_status_string(status));
+            break;
+        }
+    }
+    kh_destroy(tl_ucp_ep_hash, self->ep_hash);
+    if (UCC_TL_CTX_HAS_OOB(self)) {
+        ucc_tl_ucp_context_barrier(self, &UCC_TL_CTX_OOB(self));
+    }
     ucc_context_progress_deregister(
         self->super.super.ucc_context,
         (ucc_context_progress_fn_t)ucp_worker_progress, self->ucp_worker);
     ucp_worker_destroy(self->ucp_worker);
-    ucp_cleanup(self->ucp_context);
     ucc_mpool_cleanup(&self->req_mp, 1);
+    ucp_cleanup(self->ucp_context);
 }
 
 UCC_CLASS_DEFINE(ucc_tl_ucp_context_t, ucc_tl_context_t);
+
+ucc_status_t ucc_tl_ucp_populate_rcache(void *addr, size_t length,
+                                        ucs_memory_type_t mem_type,
+                                        ucc_tl_ucp_context_t *ctx)
+{
+    ucp_mem_map_params_t mmap_params;
+    ucp_mem_h            mh;
+    ucs_status_t         status;
+
+    mmap_params.field_mask  = UCP_MEM_MAP_PARAM_FIELD_ADDRESS |
+                              UCP_MEM_MAP_PARAM_FIELD_LENGTH  |
+                              UCP_MEM_MAP_PARAM_FIELD_MEMORY_TYPE;
+    mmap_params.address     = addr;
+    mmap_params.length      = length;
+    mmap_params.memory_type = mem_type;
+
+    /* do map and umap to populate the cache */
+    status = ucp_mem_map(ctx->ucp_context, &mmap_params, &mh);
+    if (status != UCS_OK) {
+        return ucs_status_to_ucc_status(status);
+    }
+
+    status = ucp_mem_unmap(ctx->ucp_context, mh);
+    if (status != UCS_OK) {
+        return ucs_status_to_ucc_status(status);
+    }
+
+    return UCC_OK;
+}
 
 ucc_status_t ucc_tl_ucp_get_context_attr(const ucc_base_context_t *context, /* NOLINT */
                                          ucc_base_attr_t *attr) /* NOLINT */

@@ -61,24 +61,36 @@ gtest_CXXFLAGS = -std=gnu++11 \
 	$(BASE_CXXFLAGS) $(GTEST_CXXFLAGS) \
 	-DGTEST_UCM_HOOK_LIB_DIR="\"${abs_builddir}/ucm/test_dlopen/.libs\""
 
-gtest_SOURCES =                 \
-	common/gtest-all.cc         \
-	common/test_obj_size.cc     \
-	common/main.cc              \
-	common/test.cc              \
-	common/test_ucc.cc          \
-	tl/tl_test.cc               \
-	core/test_lib_config.cc     \
-	core/test_lib.cc            \
-	core/test_context_config.cc \
-	core/test_context.cc        \
-	core/test_mc.cc             \
-	core/test_team.cc           \
-	core/test_barrier.cc
+gtest_SOURCES =                     \
+	common/gtest-all.cc             \
+	common/test_obj_size.cc         \
+	common/main.cc                  \
+	common/test.cc                  \
+	common/test_ucc.cc              \
+	tl/tl_test.cc                   \
+	core/test_lib_config.cc         \
+	core/test_lib.cc                \
+	core/test_context_config.cc     \
+	core/test_context.cc            \
+	core/test_mc.cc                 \
+	core/test_mc_reduce_host.cc     \
+	core/test_team.cc               \
+	core/test_barrier.cc            \
+	core/test_alltoall.cc           \
+	core/test_alltoallv.cc          \
+	core/test_allgather.cc          \
+	core/test_allgatherv.cc         \
+	core/test_bcast.cc              \
+	core/test_allreduce.cc          \
+	utils/test_string.cc            \
+	coll_score/test_score.cc        \
+	coll_score/test_score_str.cc    \
+	coll_score/test_score_update.cc
 
 if HAVE_CUDA
 gtest_SOURCES += \
-	core/test_mc_cuda.cc
+	core/test_mc_cuda.cc        \
+	core/test_mc_reduce_cuda.cc
 gtest_CPPFLAGS += \
 	$(CUDA_CPPFLAGS)
 gtest_LDFLAGS += \
@@ -87,13 +99,14 @@ gtest_LDADD += \
 	$(CUDA_LIBS)
 endif
 
-noinst_HEADERS =          \
-	common/gtest.h        \
-	common/test.h         \
-	common/test_helpers.h \
-	common/test_ucc.h     \
-	core/test_context.h
-
+noinst_HEADERS =            \
+	common/gtest.h          \
+	common/test.h           \
+	common/test_helpers.h   \
+	common/test_ucc.h       \
+	core/test_context.h     \
+	core/test_mc_reduce.h   \
+	coll_score/test_score.h
 
 .PHONY: test test gdb valgrind fix_rpath ucc
 

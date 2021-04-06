@@ -20,15 +20,17 @@
 
 typedef struct ucc_base_lib {
     ucc_log_component_config_t log_component;
+    char                      *score_str;
 } ucc_base_lib_t;
 
 typedef struct ucc_base_config {
     ucc_config_global_list_entry_t *cfg_entry;
     ucc_log_component_config_t      log_component;
+    char                           *score_str;
 } ucc_base_config_t;
 
 typedef struct ucc_base_attr_t {
-    ucc_thread_mode_t thread_mode;
+    ucc_lib_attr_t attr;
 } ucc_base_attr_t;
 
 typedef struct ucc_base_lib_params {
@@ -75,30 +77,38 @@ typedef struct ucc_base_team_params {
                                    a single CL team (e.g. basic) creates multiple TL teams
                                    of the same type (e.g. several tl_ucp teams). In this
                                    case CL would give those teams different scope_id. */
-    uint32_t          rank; /* Rank of a calling process in the TL/CL team. It is a uniq
+    ucc_rank_t        rank; /* Rank of a calling process in the TL/CL team. It is a uniq
                                process identifier within a team (not job) but it has the
                                property: it is always contig and in the range [0, team_size).*/
+    uint16_t          id;  /* core level team id */
 } ucc_base_team_params_t;
 
 typedef struct ucc_base_team {
     ucc_base_context_t *context;
 } ucc_base_team_t;
 
+typedef struct ucc_coll_score ucc_coll_score_t;
 typedef struct ucc_base_team_iface {
     ucc_status_t (*create_post)(ucc_base_context_t *context,
                                 const ucc_base_team_params_t *params,
                                 ucc_base_team_t **team);
     ucc_status_t (*create_test)(ucc_base_team_t *team);
     ucc_status_t (*destroy)(ucc_base_team_t *team);
+    ucc_status_t (*get_scores)(ucc_base_team_t *team, ucc_coll_score_t **score);
 } ucc_base_team_iface_t;
 
-typedef struct ucc_base_coll_op_args {
-    ucc_coll_op_args_t args;
-} ucc_base_coll_op_args_t;
+typedef struct ucc_team ucc_team_t;
+typedef struct ucc_base_coll_args {
+    ucc_coll_args_t args;
+    ucc_team_t     *team;
+} ucc_base_coll_args_t;
+
+typedef ucc_status_t (*ucc_base_coll_init_fn_t)(ucc_base_coll_args_t *coll_args,
+                                                ucc_base_team_t      *team,
+                                                ucc_coll_task_t     **task);
 
 typedef struct ucc_base_coll_iface {
-    ucc_status_t (*init)(ucc_base_coll_op_args_t *coll_args,
-                         ucc_base_team_t *team, ucc_coll_task_t **task);
+    ucc_base_coll_init_fn_t init;
 } ucc_base_coll_iface_t;
 
 ucc_status_t ucc_base_config_read(const char *full_prefix,
@@ -125,9 +135,10 @@ static inline void ucc_base_config_release(ucc_base_config_t *config)
     ucc_##_f##_name##_iface_t ucc_##_f##_name = {                              \
         UCC_IFACE_CFG(_F, _f, lib, _name, _NAME),                              \
         UCC_IFACE_CFG(_F, _f, context, _name, _NAME),                          \
-        .super.super.name = UCC_PP_MAKE_STRING(_name),                         \
-        .super.type       = UCC_##_F##_NAME,                                   \
-        .super.lib.init   = UCC_CLASS_NEW_FUNC_NAME(ucc_##_f##_name##_lib_t),  \
+        .super.super.score  = UCC_##_F##_NAME##_DEFAULT_SCORE,                 \
+        .super.super.name   = UCC_PP_MAKE_STRING(_name),                       \
+        .super.type         = UCC_##_F##_NAME,                                 \
+        .super.lib.init     = UCC_CLASS_NEW_FUNC_NAME(ucc_##_f##_name##_lib_t),\
         .super.lib.finalize =                                                  \
             UCC_CLASS_DELETE_FUNC_NAME(ucc_##_f##_name##_lib_t),               \
         .super.lib.get_attr = ucc_##_f##_name##_get_lib_attr,                  \
@@ -140,6 +151,7 @@ static inline void ucc_base_config_release(ucc_base_config_t *config)
             UCC_CLASS_NEW_FUNC_NAME(ucc_##_f##_name##_team_t),                 \
         .super.team.create_test = ucc_##_f##_name##_team_create_test,          \
         .super.team.destroy     = ucc_##_f##_name##_team_destroy,              \
+        .super.team.get_scores  = ucc_##_f##_name##_team_get_scores,           \
         .super.coll.init        = ucc_##_f##_name##_coll_init};                \
     UCC_CONFIG_REGISTER_TABLE_ENTRY(&ucc_##_f##_name.super._f##lib_config,     \
                                     &ucc_config_global_list);                  \

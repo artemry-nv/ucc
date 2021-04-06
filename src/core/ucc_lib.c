@@ -67,9 +67,11 @@ static ucc_status_t ucc_cl_lib_init(const ucc_lib_params_t *user_params,
 {
     int                   n_cls = ucc_global_config.cl_framework.n_components;
     uint64_t              supported_coll_types = 0;
-    ucc_thread_mode_t     supported_tm         = UCC_THREAD_MULTIPLE;
+    ucc_thread_mode_t     highest_tm           = UCC_THREAD_SINGLE;
+    ucc_thread_mode_t     lowest_tm            = UCC_THREAD_MULTIPLE;
     ucc_lib_params_t      params               = *user_params;
     ucc_cl_lib_config_t  *cl_config            = NULL;
+    ucc_cl_lib_attr_t     attrs[UCC_CL_LAST];
     ucc_cl_iface_t       *cl_iface;
     ucc_base_lib_t *      b_lib;
     ucc_base_lib_params_t b_params;
@@ -102,17 +104,6 @@ static ucc_status_t ucc_cl_lib_init(const ucc_lib_params_t *user_params,
             (0 == ucc_cl_requested(config, cl_iface->type))) {
             continue;
         }
-        if (params.thread_mode > cl_iface->attr.thread_mode) {
-            /* Requested THREAD_MODE is not supported by the CL:
-               1. If cls == "all" - just skip this CL
-               2. If specific CLs are requested: continue and user will
-                  have to query result attributes and check thread mode*/
-            if (!lib->specific_cls_requested) {
-                ucc_info("requested thread_mode is not supported by the CL: %s",
-                         cl_iface->super.name);
-                continue;
-            }
-        }
         status = ucc_cl_lib_config_read(cl_iface, lib->full_prefix, &cl_config);
         if (UCC_OK != status) {
             ucc_error("failed to read CL \"%s\" lib configuration",
@@ -135,20 +126,58 @@ static ucc_status_t ucc_cl_lib_init(const ucc_lib_params_t *user_params,
         ucc_base_config_release(&cl_config->super);
         cl_lib                          = ucc_derived_of(b_lib, ucc_cl_lib_t);
         lib->cl_libs[lib->n_cl_libs_opened++] = cl_lib;
-        supported_coll_types |= cl_iface->attr.coll_types;
-        if (cl_iface->attr.thread_mode < supported_tm) {
-            supported_tm = cl_iface->attr.thread_mode;
+        status = cl_iface->lib.get_attr(&cl_lib->super, &attrs[i].super);
+        if (UCC_OK != status) {
+            ucc_error("failed to query cl lib %s attr", cl_lib->iface->super.name);
+            return status;
         }
-        ucc_info("lib_prefix \"%s\": initialized component \"%s\" priority %d",
-                 config->full_prefix, cl_iface->super.name, cl_lib->priority);
+        ucc_info("lib_prefix \"%s\": initialized component \"%s\" score %d",
+                 config->full_prefix, cl_iface->super.name, cl_iface->super.score);
+        if (attrs[i].super.attr.thread_mode > highest_tm) {
+            highest_tm = attrs[i].super.attr.thread_mode;
+        }
+        if (attrs[i].super.attr.thread_mode < lowest_tm) {
+            lowest_tm = attrs[i].super.attr.thread_mode;
+        }
     }
 
     if (lib->n_cl_libs_opened == 0) {
-        ucc_error("lib_init failed: no CLs left after filtering");
+        ucc_error("lib_init failed: no CL libs were opened");
         status = UCC_ERR_NO_MESSAGE;
         goto error;
     }
 
+    if (highest_tm < params.thread_mode) {
+        /* No CL can provide the thread_mode that user required.
+           Leave all the selected components and set library thread_mode
+           to lowest_tm */
+        ucc_info("selected set of CLs does not provide the requested "
+                 "thread_mode");
+        lib->attr.thread_mode = lowest_tm;
+    } else if (lowest_tm < highest_tm) {
+        /* Some CLs can support the required thread_mode but some can't.
+           Lets try to satisfy user request and remove all the CLs with
+           thread_mode < required */
+        int n_cl_libs_filtered = 0;
+        lib->attr.thread_mode  = params.thread_mode;
+        for (i = 0; i < lib->n_cl_libs_opened; i++) {
+            if (attrs[i].super.attr.thread_mode >= params.thread_mode) {
+                lib->cl_libs[n_cl_libs_filtered] = lib->cl_libs[i];
+                attrs[n_cl_libs_filtered]        = attrs[i];
+                n_cl_libs_filtered++;
+            }
+        }
+        lib->n_cl_libs_opened = n_cl_libs_filtered;
+        ucc_assert(n_cl_libs_filtered > 0);
+    } else {
+        /* All opened CLs can support required thread mode:
+           leave them all*/
+        lib->attr.thread_mode = params.thread_mode;
+    }
+
+    for (i = 0; i < lib->n_cl_libs_opened; i++) {
+        supported_coll_types |= attrs[i].super.attr.coll_types;
+    }
     /* Check if the combination of the selected CLs provides all the
        requested coll_types: not an error, just print a message if not
        all the colls are supproted */
@@ -157,12 +186,7 @@ static ucc_status_t ucc_cl_lib_init(const ucc_lib_params_t *user_params,
         ucc_debug("selected set of CLs does not provide all the requested "
                   "coll_types");
     }
-    if (params.thread_mode > supported_tm) {
-        ucc_debug("selected set of CLs does not provide the requested "
-                  "thread_mode");
-    }
     lib->attr.coll_types  = supported_coll_types;
-    lib->attr.thread_mode = ucc_min(supported_tm, params.thread_mode);
     return UCC_OK;
 
 error_cl_init:
@@ -206,7 +230,7 @@ static ucc_status_t ucc_tl_lib_init(const ucc_lib_params_t *user_params,
     lib->tl_libs =
         (ucc_tl_lib_t **)ucc_malloc(sizeof(ucc_tl_lib_t *) * n_tls, "tl_libs");
     lib->n_tl_libs_opened = 0;
-    if (!lib->cl_libs) {
+    if (!lib->tl_libs) {
         ucc_error("failed to allocate %zd bytes for tl_libs",
                   sizeof(ucc_tl_lib_t *) * n_tls);
         return UCC_ERR_NO_MEMORY;
@@ -385,19 +409,39 @@ ucc_status_t ucc_lib_config_modify(ucc_lib_config_h config, const char *name,
                                        value);
 }
 
+ucc_status_t ucc_lib_get_attr(ucc_lib_h lib_p, ucc_lib_attr_t *lib_attr)
+{
+    ucc_lib_info_t *lib = (ucc_lib_info_t *)lib_p;
+
+    if (lib_attr->mask & UCC_LIB_ATTR_FIELD_THREAD_MODE) {
+        lib_attr->thread_mode = lib->attr.thread_mode;
+    }
+    if (lib_attr->mask & UCC_LIB_ATTR_FIELD_COLL_TYPES) {
+        lib_attr->coll_types = lib->attr.coll_types;
+    }
+    if ((lib_attr->mask & UCC_LIB_ATTR_FIELD_REDUCTION_TYPES) ||
+        (lib_attr->mask & UCC_LIB_ATTR_FIELD_SYNC_TYPE)) {
+        return UCC_ERR_NOT_SUPPORTED;
+    }
+    return UCC_OK;
+}
+
 ucc_status_t ucc_finalize(ucc_lib_info_t *lib)
 {
     int i;
+    ucc_status_t status;
+
     ucc_assert(lib->n_cl_libs_opened > 0);
     ucc_assert(lib->cl_libs);
-    /* If some CL components fails in finalize we will return
-       its failure status to the user, however we will still
-       try to continue and finalize other CLs */
+    for (i = 0; i < lib->n_tl_libs_opened; i++) {
+        lib->tl_libs[i]->iface->lib.finalize(&lib->tl_libs[i]->super);
+    }
     for (i = 0; i < lib->n_cl_libs_opened; i++) {
         lib->cl_libs[i]->iface->lib.finalize(&lib->cl_libs[i]->super);
     }
+    status = ucc_mc_finalize();
+    ucc_free(lib->tl_libs);
     ucc_free(lib->cl_libs);
     ucc_free(lib);
-    ucc_mc_finalize();
-    return UCC_OK;
+    return status;
 }

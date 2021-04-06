@@ -6,21 +6,85 @@
 #ifndef TEST_UCC_H
 #define TEST_UCC_H
 #include "test.h"
+#include "ucc/api/ucc.h"
+extern "C" {
+#include "core/ucc_mc.h"
+}
 #include <vector>
 #include <tuple>
 #include <memory>
+
+typedef struct {
+   void *init_buf;
+   size_t rbuf_size;
+   ucc_coll_args_t *args;
+} gtest_ucc_coll_ctx_t;
+
+typedef std::vector<gtest_ucc_coll_ctx_t*> UccCollCtxVec;
+
+typedef enum {
+    TEST_NO_INPLACE,
+    TEST_INPLACE
+} gtest_ucc_inplace_t;
+
+class UccCollArgs {
+protected: 
+    ucc_memory_type_t mem_type;
+    gtest_ucc_inplace_t inplace;
+    void alltoallx_init_buf(int src_rank, int dst_rank, uint8_t *buf, size_t len)
+    {
+        for (int i = 0; i < len; i++) {
+            buf[i] = (uint8_t)(((src_rank + len - i) *
+                                (dst_rank + 1)) % UINT8_MAX);
+        }
+    }
+    int alltoallx_validate_buf(int src_rank, int dst_rank, uint8_t *buf, size_t len)
+    {
+        int err = 0;
+        for (int i = 0; i < len; i ++) {
+            uint8_t expected = (uint8_t)
+                    (((dst_rank + len - i) *
+                      (src_rank + 1)) % UINT8_MAX);
+            if (buf[i] != expected) {
+                err++;
+            }
+        }
+        return err;
+    }
+public:
+    UccCollArgs() {
+        // defaults
+        mem_type = UCC_MEMORY_TYPE_HOST;
+        inplace = TEST_NO_INPLACE;
+    }
+    virtual ~UccCollArgs() {}
+    virtual void data_init(int nprocs, ucc_datatype_t dtype,
+                           size_t count, UccCollCtxVec &args) = 0;
+    virtual void data_fini(UccCollCtxVec args) = 0;
+    virtual void data_validate(UccCollCtxVec args) = 0;
+    void set_mem_type(ucc_memory_type_t _mt);
+    void set_inplace(gtest_ucc_inplace_t _inplace);
+};
 
 /* A single processes in a Job that runs UCC.
    It has context and lib object */
 class UccProcess {
 public:
     static constexpr ucc_lib_params_t default_lib_params = {
-        .mask = UCC_LIB_PARAM_FIELD_THREAD_MODE,
-        .thread_mode = UCC_THREAD_SINGLE
+        .mask = UCC_LIB_PARAM_FIELD_THREAD_MODE |
+                UCC_LIB_PARAM_FIELD_COLL_TYPES,
+        .thread_mode = UCC_THREAD_SINGLE,
+        .coll_types = UCC_COLL_TYPE_BARRIER |
+                      UCC_COLL_TYPE_ALLTOALL |
+                      UCC_COLL_TYPE_ALLTOALLV |
+                      UCC_COLL_TYPE_ALLREDUCE |
+                      UCC_COLL_TYPE_ALLGATHER |
+                      UCC_COLL_TYPE_ALLGATHERV |
+                      UCC_COLL_TYPE_BCAST
     };
     static constexpr ucc_context_params_t default_ctx_params = {
         .mask = UCC_CONTEXT_PARAM_FIELD_TYPE,
-        .ctx_type = UCC_CONTEXT_EXCLUSIVE
+        .type = UCC_CONTEXT_EXCLUSIVE
     };
     ucc_lib_h            lib_h;
     ucc_context_h        ctx_h;
@@ -72,20 +136,23 @@ public:
     ~UccTeam();
 };
 typedef std::shared_ptr<UccTeam> UccTeam_h;
-
+typedef std::pair<std::string, std::string> ucc_env_var_t;
+typedef std::vector<ucc_env_var_t> ucc_job_env_t;
 /* UccJob - environent that has n_procs processes.
    Multiple UccTeams can be created from UccJob */
 class UccJob {
-    static const int staticUccJobSize = 16;
-    static constexpr int staticTeamSizes[] = {2, 7, 8};
     static UccJob* staticUccJob;
     static std::vector<UccTeam_h> staticTeams;
 public:
+    static const int nStaticTeams     = 3;
+    static const int staticUccJobSize = 16;
+    static constexpr int staticTeamSizes[nStaticTeams] = {2, 11, 16};
     static void cleanup();
     static UccJob* getStaticJob();
     static const std::vector<UccTeam_h> &getStaticTeams();
     int n_procs;
     UccJob(int _n_procs = 2);
+    UccJob(int _n_procs, ucc_job_env_t vars);
     ~UccJob();
     std::vector<UccProcess_h> procs;
     UccTeam_h create_team(int n_procs);
@@ -104,7 +171,8 @@ public:
     };
 
     std::vector<ucc_coll_req_h> reqs;
-    UccReq(UccTeam_h _team, ucc_coll_op_args_t *args);
+    UccReq(UccTeam_h _team, ucc_coll_args_t *args);
+    UccReq(UccTeam_h _team, UccCollCtxVec args);
     ~UccReq();
     void start(void);
     void wait();

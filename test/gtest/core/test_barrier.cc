@@ -9,7 +9,7 @@
 class test_barrier : public ucc::test
 {
 public:
-    ucc_coll_op_args_t coll;
+    ucc_coll_args_t coll;
     test_barrier() {
         coll.coll_type = UCC_COLL_TYPE_BARRIER;
     }
@@ -25,8 +25,7 @@ UCC_TEST_F(test_barrier, single_2proc)
 
 UCC_TEST_F(test_barrier, single_max_procs)
 {
-    int team_size = UccJob::getStaticJob()->n_procs;
-    UccTeam_h team = UccJob::getStaticJob()->create_team(team_size);
+    UccTeam_h team = UccJob::getStaticTeams().back();
     UccReq    req(team, &coll);
     req.start();
     req.wait();

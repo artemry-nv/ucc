@@ -22,6 +22,7 @@ static int ucc_pq_st_progress(ucc_progress_queue_t *pq)
 
     ucc_list_for_each_safe(task, tmp, &pq_st->list, list_elem) {
         if (task->progress) { //TODO maybe dummy empty progress fn is better than branch?
+            ucc_assert(task->super.status != UCC_OK);
             status = task->progress(task);
             if (status < 0) {
                 return status;
@@ -29,11 +30,14 @@ static int ucc_pq_st_progress(ucc_progress_queue_t *pq)
         }
         if (UCC_OK == task->super.status) {
             n_progressed++;
-            status = ucc_event_manager_notify(&task->em, UCC_EVENT_COMPLETED);
+            status = ucc_event_manager_notify(task, UCC_EVENT_COMPLETED);
             if (status != UCC_OK) {
                 return status;
             }
             ucc_list_del(&task->list_elem);
+            if (task->flags & UCC_COLL_TASK_FLAG_INTERNAL) {
+                task->finalize(task);
+            }
         }
     }
     return n_progressed;
@@ -60,6 +64,7 @@ ucc_status_t ucc_pq_st_init(ucc_progress_queue_t **pq)
     }
     ucc_list_head_init(&pq_st->list);
     pq_st->super.enqueue  = ucc_pq_st_enqueue;
+    pq_st->super.dequeue  = NULL;
     pq_st->super.progress = ucc_pq_st_progress;
     pq_st->super.finalize = ucc_pq_st_finalize;
     *pq                   = &pq_st->super;

@@ -11,6 +11,31 @@
 #include "utils/ucc_log.h"
 #include "utils/ucc_list.h"
 #include "ucc_progress_queue.h"
+
+static uint32_t ucc_context_seq_num = 0;
+static ucc_config_field_t ucc_context_config_table[] = {
+    {"ESTIMATED_NUM_EPS", "0",
+     "An optimization hint of how many endpoints will be created on this context",
+     ucc_offsetof(ucc_context_config_t, estimated_num_eps), UCC_CONFIG_TYPE_UINT},
+
+    {"LOCK_FREE_PROGRESS_Q", "0",
+     "Enable lock free progress queue optimization",
+     ucc_offsetof(ucc_context_config_t, lock_free_progress_q), UCC_CONFIG_TYPE_UINT},
+
+    {"ESTIMATED_NUM_PPN", "0",
+     "An optimization hint of how many endpoints created on this context reside"
+     " on the same node",
+     ucc_offsetof(ucc_context_config_t, estimated_num_ppn), UCC_CONFIG_TYPE_UINT},
+
+    {"TEAM_IDS_POOL_SIZE", "32",
+     "Defines the size of the team_id_pool. The number of coexisting unique team ids "
+     "for a single process is team_ids_pool_size*64. This parameter is relevant when "
+     "internal team id allocation takes place.",
+     ucc_offsetof(ucc_context_config_t, team_ids_pool_size), UCC_CONFIG_TYPE_UINT},
+
+    {NULL}
+};
+
 ucc_status_t ucc_context_config_read(ucc_lib_info_t *lib, const char *filename,
                                      ucc_context_config_t **config_p)
 {
@@ -31,6 +56,14 @@ ucc_status_t ucc_context_config_read(ucc_lib_info_t *lib, const char *filename,
         status = UCC_ERR_NO_MEMORY;
         goto err_config;
     }
+
+    status = ucc_config_parser_fill_opts(config, ucc_context_config_table,
+                                         lib->full_prefix, NULL, 0);
+    if (status != UCC_OK) {
+        ucc_error("failed to read UCC core context config");
+        goto err_configs;
+    }
+
     config->lib     = lib;
     config->configs = (ucc_cl_context_config_t **)ucc_calloc(
         lib->n_cl_libs_opened, sizeof(ucc_cl_context_config_t *),
@@ -99,7 +132,16 @@ ucc_status_t ucc_context_config_modify(ucc_context_config_t *config,
     int                      i;
     ucc_status_t             status;
     ucc_cl_context_config_t *cl_cfg;
-    if (0 != strcmp(cls, "all")) {
+    if (NULL == cls) {
+        /* cls is NULL means modify core ucc context config */
+        status = ucc_config_parser_set_value(config, ucc_context_config_table, name,
+                                             value);
+        if (UCC_OK != status) {
+            ucc_error("failed to modify CORE configuration, name %s, value %s",
+                      name, value);;
+            return status;
+        }
+    } else if (0 != strcmp(cls, "all")) {
         ucc_cl_type_t *required_cls;
         int            n_required_cls;
         status = ucc_parse_cls_string(cls, &required_cls, &n_required_cls);
@@ -176,17 +218,21 @@ void ucc_context_config_print(const ucc_context_config_h config, FILE *stream,
        CL name as title */
     flags |= UCC_CONFIG_PRINT_HEADER;
 
+    if (print_header) {
+        ucc_config_parser_print_opts(
+            stream, title, config,
+            ucc_context_config_table, "",
+            config->lib->full_prefix, UCC_CONFIG_PRINT_HEADER);
+    }
+
+    ucc_config_parser_print_opts(
+        stream, "CORE",
+        config, ucc_context_config_table, "",
+        config->lib->full_prefix, (ucc_config_print_flags_t)flags);
+
     for (i = 0; i < config->n_cl_cfg; i++) {
         if (!config->configs[i]) {
             continue;
-        }
-        if (print_header) {
-            print_header = 0;
-            ucc_config_parser_print_opts(
-                stream, title, config->configs[i],
-                config->lib->cl_libs[i]->iface->cl_context_config.table,
-                config->lib->cl_libs[i]->iface->cl_context_config.prefix,
-                config->lib->full_prefix, UCC_CONFIG_PRINT_HEADER);
         }
 
         ucc_config_parser_print_opts(
@@ -202,10 +248,10 @@ static inline void ucc_copy_context_params(ucc_context_params_t *dst,
                                            const ucc_context_params_t *src)
 {
     dst->mask = src->mask;
-    UCC_COPY_PARAM_BY_FIELD(dst, src, UCC_CONTEXT_PARAM_FIELD_TYPE, ctx_type);
-    UCC_COPY_PARAM_BY_FIELD(dst, src, UCC_CONTEXT_PARAM_FIELD_COLL_OOB, oob);
+    UCC_COPY_PARAM_BY_FIELD(dst, src, UCC_CONTEXT_PARAM_FIELD_TYPE, type);
+    UCC_COPY_PARAM_BY_FIELD(dst, src, UCC_CONTEXT_PARAM_FIELD_OOB, oob);
     UCC_COPY_PARAM_BY_FIELD(dst, src, UCC_CONTEXT_PARAM_FIELD_ID, ctx_id);
-    UCC_COPY_PARAM_BY_FIELD(dst, src, UCC_CONTEXT_PARAM_FIELD_COLL_SYNC_TYPE,
+    UCC_COPY_PARAM_BY_FIELD(dst, src, UCC_CONTEXT_PARAM_FIELD_SYNC_TYPE,
                             sync_type);
 }
 
@@ -274,13 +320,16 @@ ucc_status_t ucc_context_create(ucc_lib_h lib,
         status = UCC_ERR_NO_MEMORY;
         goto error;
     }
-    ctx->lib                     = lib;
+    ctx->lib           = lib;
+    ctx->service_ctx   = NULL;
+    ctx->ids.pool_size = config->team_ids_pool_size;
+    ctx->ids.pool      = NULL;
     ucc_list_head_init(&ctx->progress_list);
     ucc_copy_context_params(&ctx->params, params);
     ucc_copy_context_params(&b_params.params, params);
     b_params.context           = ctx;
-    b_params.estimated_num_eps = 0; //TODO
-    b_params.estimated_num_ppn = 0; //TODO
+    b_params.estimated_num_eps = config->estimated_num_eps;
+    b_params.estimated_num_ppn = config->estimated_num_ppn;
     b_params.prefix            = lib->full_prefix;
     b_params.thread_mode       = lib->attr.thread_mode;
     status = ucc_create_tl_contexts(ctx, config, b_params);
@@ -326,15 +375,19 @@ ucc_status_t ucc_context_create(ucc_lib_h lib,
     /* Initialize ctx thread mode:
        if context is EXCLUSIVE then thread_mode is always SINGLE,
        otherwise it is  inherited from lib */
-    ctx->thread_mode = ((params->ctx_type == UCC_CONTEXT_EXCLUSIVE) &&
+    ctx->thread_mode = ((params->type == UCC_CONTEXT_EXCLUSIVE) &&
                         (params->mask & UCC_CONTEXT_PARAM_FIELD_TYPE))
                            ? UCC_THREAD_SINGLE
                            : lib->attr.thread_mode;
-    status           = ucc_progress_queue_init(&ctx->pq, ctx->thread_mode);
+    status           = ucc_progress_queue_init(&ctx->pq, ctx->thread_mode,
+                                               config->lock_free_progress_q);
     if (UCC_OK != status) {
         ucc_error("failed to init progress queue for context %p", ctx);
         goto error_ctx_create;
     }
+    ctx->id.host_id = ucc_local_proc.host_id;
+    ctx->id.pid     = getpid();
+    ctx->id.seq_num = ucc_context_seq_num++;
     ucc_info("created ucc context %p for lib %s", ctx, lib->full_prefix);
     *context = ctx;
     return UCC_OK;
@@ -375,6 +428,7 @@ ucc_status_t ucc_context_destroy(ucc_context_t *context)
     }
     ucc_progress_queue_finalize(context->pq);
     ucc_free(context->tl_ctx);
+    ucc_free(context->ids.pool);
     ucc_free(context);
     return UCC_OK;
 }

@@ -100,7 +100,8 @@ ucc_status_t UccTeam::req_test(void *request)
     switch (ci->self->ag[ci->my_rank].phase) {
     case UccTeam::AG_READY:
         for (int i = 0; i < n_procs; i++) {
-            if (ci->self->ag[i].phase == UccTeam::AG_INIT) {
+            if ((ci->self->ag[i].phase == UccTeam::AG_INIT) ||
+                (ci->self->ag[i].phase == UccTeam::AG_COMPLETE)) {
                 return UCC_INPROGRESS;
             }
         }
@@ -166,7 +167,7 @@ void UccTeam::init_team()
         all_done = 1;
         for (int i = 0; i < n_procs; i++) {
             status = ucc_team_create_test(procs[i].team);
-            EXPECT_GE(status, 0);
+            ASSERT_GE(status, 0);
             if (UCC_INPROGRESS == status) {
                 all_done = 0;
             }
@@ -186,9 +187,11 @@ void UccTeam::destroy_team()
         all_done = true;
         for (auto &p : procs) {
             if (p.team) {
-                status = ucc_team_destroy_nb(p.team);
+                status = ucc_team_destroy(p.team);
                 if (UCC_OK == status) {
                     p.team = NULL;
+                } else if (status < 0) {
+                    return;
                 } else {
                     all_done = false;
                 }
@@ -228,6 +231,29 @@ UccJob::UccJob(int _n_procs) : n_procs(_n_procs)
 {
     for (int i = 0; i < n_procs; i++) {
         procs.push_back(std::make_shared<UccProcess>());
+    }
+}
+
+UccJob::UccJob(int _n_procs, ucc_job_env_t vars) : n_procs(_n_procs)
+{
+    ucc_job_env_t env_bkp;
+    char *var;
+    for (auto &v : vars) {
+        var = std::getenv(v.first.c_str());
+        if (var) {
+            /* found env - back it up for later restore
+               after processes creation */
+            env_bkp.push_back(ucc_env_var_t(v.first, var));
+        }
+        setenv(v.first.c_str(), v.second.c_str(), 1);
+    }
+    for (int i = 0; i < n_procs; i++) {
+        procs.push_back(std::make_shared<UccProcess>());
+    }
+
+    for (auto &v : env_bkp) {
+        /*restore original env */
+        setenv(v.first.c_str(), v.second.c_str(), 1);
     }
 }
 
@@ -278,14 +304,36 @@ UccTeam_h UccJob::create_team(int _n_procs)
 }
 
 
-UccReq::UccReq(UccTeam_h _team, ucc_coll_op_args_t *args) :
+UccReq::UccReq(UccTeam_h _team, ucc_coll_args_t *args) :
     team(_team)
 {
     ucc_coll_req_h req;
     for (auto &p : team->procs) {
-        EXPECT_EQ(UCC_OK, ucc_collective_init(args, &req, p.team));
+        if (UCC_OK != ucc_collective_init(args, &req, p.team)) {
+            goto err;
+        }
         reqs.push_back(req);
     }
+    return;
+err:
+    reqs.clear();
+}
+
+UccReq::UccReq(UccTeam_h _team, UccCollCtxVec ctxs) :
+        team(_team)
+{
+    EXPECT_EQ(team->procs.size(), ctxs.size());
+    ucc_coll_req_h req;
+    for (auto i = 0; i < team->procs.size(); i++) {
+        if (UCC_OK != ucc_collective_init(ctxs[i]->args, &req,
+                                          team->procs[i].team)) {
+            goto err;
+        }
+        reqs.push_back(req);
+    }
+    return;
+err:
+    reqs.clear();
 }
 
 UccReq::~UccReq()
@@ -297,8 +345,9 @@ UccReq::~UccReq()
 
 void UccReq::start()
 {
+    ASSERT_NE(0, reqs.size());
     for (auto r : reqs) {
-        EXPECT_EQ(UCC_OK, ucc_collective_post(r));
+        ASSERT_EQ(UCC_OK, ucc_collective_post(r));
     }
 }
 
@@ -311,13 +360,16 @@ ucc_status_t UccReq::test()
             break;
         }
     }
-    EXPECT_GE(status, 0);
     return status;
 }
 
 void UccReq::wait()
 {
-    while (UCC_OK != test()) {
+    ucc_status_t status;
+    while (UCC_OK != (status = test())) {
+        if (status < 0) {
+            return;
+        }
         team->progress();
     }
 }
@@ -325,10 +377,14 @@ void UccReq::wait()
 void UccReq::waitall(std::vector<UccReq> &reqs)
 {
     bool alldone = false;
+    ucc_status_t status;
     while (!alldone) {
         alldone = true;
         for (auto &r : reqs) {
-            if (UCC_OK != r.test()) {
+            if (UCC_OK != (status = r.test())) {
+                if (status < 0) {
+                    return;
+                }
                 alldone = false;
                 r.team->progress();
             }
@@ -341,4 +397,18 @@ void UccReq::startall(std::vector<UccReq> &reqs)
     for (auto &r : reqs) {
         r.start();
     }
+}
+
+void UccCollArgs::set_mem_type(ucc_memory_type_t _mt)
+{
+    if (UCC_OK != ucc_mc_available(_mt)) {
+        UCC_TEST_SKIP_R(ucc::to_string(ucc_memory_type_names[_mt]) +
+                        " memory type not available");
+    }
+    mem_type = _mt;
+}
+
+void UccCollArgs::set_inplace(gtest_ucc_inplace_t _inplace)
+{
+    inplace = _inplace;
 }

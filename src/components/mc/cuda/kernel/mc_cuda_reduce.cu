@@ -17,17 +17,6 @@ extern "C" {
 #include <assert.h>
 #include <stdio.h>
 
-#define  DO_OP_MAX(_v1, _v2) (_v1 > _v2 ? _v1 : _v2)
-#define  DO_OP_MIN(_v1, _v2) (_v1 < _v2 ? _v1 : _v2)
-#define  DO_OP_SUM(_v1, _v2) (_v1 + _v2)
-#define DO_OP_PROD(_v1, _v2) (_v1 * _v2)
-#define DO_OP_LAND(_v1, _v2) (_v1 && _v2)
-#define DO_OP_BAND(_v1, _v2) (_v1 & _v2)
-#define  DO_OP_LOR(_v1, _v2) (_v1 || _v2)
-#define  DO_OP_BOR(_v1, _v2) (_v1 | _v2)
-#define DO_OP_LXOR(_v1, _v2) ((!_v1) != (!_v2))
-#define DO_OP_BXOR(_v1, _v2) (_v1 ^ _v2)
-
 #define CUDA_REDUCE_WITH_OP(NAME, OP)                                          \
 template <typename T>                                                          \
 __global__ void UCC_REDUCE_CUDA_ ## NAME (const T *s1, const T *s2, T *d,      \
@@ -80,6 +69,9 @@ CUDA_REDUCE_WITH_OP(BXOR, DO_OP_BXOR)
         case UCC_OP_LOR:                                                       \
             LAUNCH_KERNEL(LOR, type, sbuf1, sbuf2, dest, count, s, b, t);      \
             break;                                                             \
+        case UCC_OP_BOR:                                                       \
+            LAUNCH_KERNEL(BOR, type, sbuf1, sbuf2, dest, count, s, b, t);      \
+            break;                                                             \
         case UCC_OP_LXOR:                                                      \
             LAUNCH_KERNEL(LXOR, type, sbuf1, sbuf2, dest, count, s, b, t);     \
             break;                                                             \
@@ -126,34 +118,31 @@ ucc_status_t ucc_mc_cuda_reduce(const void *src1, const void *src2, void *dst,
                                 size_t count, ucc_datatype_t dt,
                                 ucc_reduction_op_t op)
 {
-    int th;
-    unsigned long bk;
-    cudaStream_t stream;
+    cudaStream_t  stream = ucc_mc_cuda.stream;
+    int           th     = MC_CUDA_CONFIG->reduce_num_threads;;
+    unsigned long bk     = (count + th - 1)/th;;
 
-    stream = ucc_mc_cuda.stream;
-    th = MC_CUDA_CONFIG->reduce_num_threads;
-    bk = (count + th - 1)/th;
     if (MC_CUDA_CONFIG->reduce_num_blocks != UCC_ULUNITS_AUTO) {
         bk = ucc_min(bk, MC_CUDA_CONFIG->reduce_num_blocks);
     }
     switch (dt)
     {
         case UCC_DT_INT16:
-            DT_REDUCE_INT(int16_t, op, src1, src2, dst, count, stream, th, bk);
+            DT_REDUCE_INT(int16_t, op, src1, src2, dst, count, stream, bk, th);
             break;
         case UCC_DT_INT32:
-            DT_REDUCE_INT(int32_t, op, src1, src2, dst, count, stream, th, bk);
+            DT_REDUCE_INT(int32_t, op, src1, src2, dst, count, stream, bk, th);
             break;
         case UCC_DT_INT64:
-            DT_REDUCE_INT(int64_t, op, src1, src2, dst, count, stream, th, bk);
+            DT_REDUCE_INT(int64_t, op, src1, src2, dst, count, stream, bk, th);
             break;
         case UCC_DT_FLOAT32:
             ucc_assert(4 == sizeof(float));
-            DT_REDUCE_FLOAT(float, op, src1, src2, dst, count, stream, th, bk);
+            DT_REDUCE_FLOAT(float, op, src1, src2, dst, count, stream, bk, th);
             break;
         case UCC_DT_FLOAT64:
             ucc_assert(8 == sizeof(double));
-            DT_REDUCE_FLOAT(double, op, src1, src2, dst, count, stream, th, bk);
+            DT_REDUCE_FLOAT(double, op, src1, src2, dst, count, stream, bk, th);
             break;
         default:
             mc_error(&ucc_mc_cuda.super, "unsupported reduction type (%d)", dt);

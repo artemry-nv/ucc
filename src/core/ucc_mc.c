@@ -10,6 +10,7 @@
 #include "utils/ucc_log.h"
 
 static const ucc_mc_ops_t *mc_ops[UCC_MEMORY_TYPE_LAST];
+static const ucc_ee_ops_t *ee_ops[UCC_EE_LAST];
 
 #define UCC_CHECK_MC_AVAILABLE(mc)                                             \
     do {                                                                       \
@@ -60,6 +61,7 @@ ucc_status_t ucc_mc_init()
         }
         mc->ref_cnt++;
         mc_ops[mc->type] = &mc->ops;
+        ee_ops[mc->ee_type] = &mc->ee_ops;
     }
 
     return UCC_OK;
@@ -78,13 +80,34 @@ ucc_status_t ucc_mc_type(const void *ptr, ucc_memory_type_t *mem_type)
 {
     ucc_memory_type_t mt;
     ucc_status_t      status;
+    ucc_mem_attr_t    mem_attr;
 
     /* TODO: consider using memory type cache from UCS */
     /* by default assume memory type host */
     *mem_type = UCC_MEMORY_TYPE_HOST;
+    mem_attr.field_mask = UCC_MEM_ATTR_FIELD_MEM_TYPE;
     for (mt = UCC_MEMORY_TYPE_HOST + 1; mt < UCC_MEMORY_TYPE_LAST; mt++) {
         if (NULL != mc_ops[mt]) {
-            status = mc_ops[mt]->mem_type(ptr, mem_type);
+            status = mc_ops[mt]->mem_query(ptr, 0, &mem_attr);
+            if (UCC_OK == status) {
+                *mem_type = mem_attr.mem_type;
+                /* found memory type for ptr */
+                return UCC_OK;
+            }
+        }
+    }
+    return UCC_OK;
+}
+
+ucc_status_t ucc_mc_query(const void *ptr, size_t length,
+                          ucc_mem_attr_t *mem_attr)
+{
+    ucc_status_t      status;
+    ucc_memory_type_t mt;
+
+    for (mt = UCC_MEMORY_TYPE_HOST + 1; mt < UCC_MEMORY_TYPE_LAST; mt++) {
+        if (NULL != mc_ops[mt]) {
+            status = mc_ops[mt]->mem_query(ptr, length, mem_attr);
             if (UCC_OK == status) {
                 /* found memory type for ptr */
                 return UCC_OK;
@@ -100,18 +123,55 @@ ucc_status_t ucc_mc_alloc(void **ptr, size_t size, ucc_memory_type_t mem_type)
     return mc_ops[mem_type]->mem_alloc(ptr, size);
 }
 
-ucc_status_t ucc_mc_reduce(const void *src1, const void *src2,
-                           void *dst, size_t count, ucc_datatype_t dt,
-                           ucc_memory_type_t mem_type, ucc_reduction_op_t op)
+ucc_status_t ucc_mc_reduce(const void *src1, const void *src2, void *dst,
+                           size_t count, ucc_datatype_t dt,
+                           ucc_reduction_op_t op, ucc_memory_type_t mem_type)
 {
+    if (count == 0) {
+        return UCC_OK;
+    }
     UCC_CHECK_MC_AVAILABLE(mem_type);
     return mc_ops[mem_type]->reduce(src1, src2, dst, count, dt, op);
+}
+
+ucc_status_t ucc_mc_reduce_multi(void *src1, void *src2, void *dst,
+                                 size_t size, size_t count, size_t stride,
+                                 ucc_datatype_t dtype, ucc_reduction_op_t op,
+                                 ucc_memory_type_t mem_type)
+{
+    if (count == 0) {
+        return UCC_OK;
+    }
+    UCC_CHECK_MC_AVAILABLE(mem_type);
+    return mc_ops[mem_type]->reduce_multi(src1, src2, dst, size, count, stride,
+                                          dtype, op);
 }
 
 ucc_status_t ucc_mc_free(void *ptr, ucc_memory_type_t mem_type)
 {
     UCC_CHECK_MC_AVAILABLE(mem_type);
     return mc_ops[mem_type]->mem_free(ptr);
+}
+
+ucc_status_t ucc_mc_memcpy(void *dst, const void *src, size_t len,
+                           ucc_memory_type_t dst_mem,
+                           ucc_memory_type_t src_mem)
+{
+    ucc_memory_type_t mt;
+    if (src_mem == UCC_MEMORY_TYPE_UNKNOWN ||
+        dst_mem == UCC_MEMORY_TYPE_UNKNOWN) {
+        return UCC_ERR_INVALID_PARAM;
+    } else if (src_mem == UCC_MEMORY_TYPE_HOST &&
+               dst_mem == UCC_MEMORY_TYPE_HOST) {
+        UCC_CHECK_MC_AVAILABLE(UCC_MEMORY_TYPE_HOST);
+        return mc_ops[UCC_MEMORY_TYPE_HOST]->memcpy(dst, src, len,
+                                                    UCC_MEMORY_TYPE_HOST,
+                                                    UCC_MEMORY_TYPE_HOST);
+    }
+    /* take any non host MC component */
+    mt = (dst_mem == UCC_MEMORY_TYPE_HOST) ? src_mem : dst_mem;
+    UCC_CHECK_MC_AVAILABLE(mt);
+    return mc_ops[mt]->memcpy(dst, src, len, dst_mem, src_mem);
 }
 
 ucc_status_t ucc_mc_finalize()
@@ -134,4 +194,39 @@ ucc_status_t ucc_mc_finalize()
     }
 
     return UCC_OK;
+}
+
+ucc_status_t ucc_mc_ee_task_post(void *ee_context, ucc_ee_type_t ee_type, void **ee_task)
+{
+    return ee_ops[ee_type]->ee_task_post(ee_context, ee_task);
+}
+
+ucc_status_t ucc_mc_ee_task_query(void *ee_task, ucc_ee_type_t ee_type)
+{
+    return ee_ops[ee_type]->ee_task_query(ee_task);
+}
+
+ucc_status_t ucc_mc_ee_task_end(void *ee_task, ucc_ee_type_t ee_type)
+{
+    return ee_ops[ee_type]->ee_task_end(ee_task);
+}
+
+ucc_status_t ucc_mc_ee_create_event(void **event, ucc_ee_type_t ee_type)
+{
+    return ee_ops[ee_type]->ee_create_event(event);
+}
+
+ucc_status_t ucc_mc_ee_destroy_event(void *event, ucc_ee_type_t ee_type)
+{
+    return ee_ops[ee_type]->ee_destroy_event(event);
+}
+
+ucc_status_t ucc_mc_ee_event_post(void *ee_context, void *event, ucc_ee_type_t ee_type)
+{
+    return ee_ops[ee_type]->ee_event_post(ee_context, event);
+}
+
+ucc_status_t ucc_mc_ee_event_test(void *event, ucc_ee_type_t ee_type)
+{
+    return ee_ops[ee_type]->ee_event_test(event);
 }

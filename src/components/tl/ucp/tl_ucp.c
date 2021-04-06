@@ -1,11 +1,12 @@
 /**
- * Copyright (C) Mellanox Technologies Ltd. 2020.  ALL RIGHTS RESERVED.
+ * Copyright (C) Mellanox Technologies Ltd. 2020-2021.  ALL RIGHTS RESERVED.
  *
  * See file LICENSE for terms.
  */
 
 #include "tl_ucp.h"
 #include "utils/ucc_malloc.h"
+#include "core/ucc_mc.h"
 #include "components/mc/base/ucc_mc_base.h"
 
 ucc_status_t ucc_tl_ucp_get_lib_attr(const ucc_base_lib_t *lib, ucc_base_attr_t *base_attr);
@@ -15,14 +16,40 @@ static ucc_config_field_t ucc_tl_ucp_lib_config_table[] = {
     {"", "", NULL, ucc_offsetof(ucc_tl_ucp_lib_config_t, super),
      UCC_CONFIG_TYPE_TABLE(ucc_tl_lib_config_table)},
 
-    {NULL}
-};
+    {"ALLTOALL_PAIRWISE_NUM_POSTS", "1",
+     "Maximum number of outstanding send and receive messages in alltoall "
+     "pairwise algorithm",
+     ucc_offsetof(ucc_tl_ucp_lib_config_t, alltoall_pairwise_num_posts),
+     UCC_CONFIG_TYPE_UINT},
+
+    {"ALLTOALLV_PAIRWISE_NUM_POSTS", "1",
+     "Maximum number of outstanding send and receive messages in alltoallv "
+     "pairwise algorithm",
+     ucc_offsetof(ucc_tl_ucp_lib_config_t, alltoallv_pairwise_num_posts),
+     UCC_CONFIG_TYPE_UINT},
+
+    {"BARRIER_KN_RADIX", "4",
+     "Radix of the recursive-knomial barrier algorithm",
+     ucc_offsetof(ucc_tl_ucp_lib_config_t, barrier_kn_radix),
+     UCC_CONFIG_TYPE_UINT},
+
+    {"ALLREDUCE_KN_RADIX", "4",
+     "Radix of the recursive-knomial allreduce algorithm",
+     ucc_offsetof(ucc_tl_ucp_lib_config_t, allreduce_kn_radix),
+     UCC_CONFIG_TYPE_UINT},
+
+    {"BCAST_KN_RADIX", "4",
+     "Radix of the recursive-knomial bcast algorithm",
+     ucc_offsetof(ucc_tl_ucp_lib_config_t, bcast_kn_radix),
+     UCC_CONFIG_TYPE_UINT},
+
+    {NULL}};
 
 static ucs_config_field_t ucc_tl_ucp_context_config_table[] = {
     {"", "", NULL, ucc_offsetof(ucc_tl_ucp_context_config_t, super),
      UCC_CONFIG_TYPE_TABLE(ucc_tl_context_config_table)},
 
-    {"PRECONNECT", "1024",
+    {"PRECONNECT", "0",
      "Threshold that defines the number of ranks in the UCC team/context "
      "below which the team/context enpoints will be preconnected during "
      "corresponding team/context create call",
@@ -34,9 +61,14 @@ static ucs_config_field_t ucc_tl_ucp_context_config_table[] = {
      ucc_offsetof(ucc_tl_ucp_context_config_t, n_polls),
      UCC_CONFIG_TYPE_UINT},
 
-    {"BARRIER_KN_RADIX", "4",
-     "Radix of the recursive-knomial barrier algorithm",
-     ucc_offsetof(ucc_tl_ucp_context_config_t, kn_barrier_radix),
+    {"OOB_NPOLLS", "20",
+     "Number of polling cycles for oob allgather request",
+     ucc_offsetof(ucc_tl_ucp_context_config_t, oob_npolls),
+     UCC_CONFIG_TYPE_UINT},
+
+    {"PRE_REG_MEM", "0",
+     "Pre Register collective memory region with UCX",
+     ucc_offsetof(ucc_tl_ucp_context_config_t, pre_reg_mem),
      UCC_CONFIG_TYPE_UINT},
 
     {NULL}};
@@ -57,10 +89,31 @@ UCC_CLASS_DEFINE_NEW_FUNC(ucc_tl_ucp_team_t, ucc_base_team_t,
                           ucc_base_context_t *, const ucc_base_team_params_t *);
 
 ucc_status_t ucc_tl_ucp_team_create_test(ucc_base_team_t *tl_team);
+
 ucc_status_t ucc_tl_ucp_team_destroy(ucc_base_team_t *tl_team);
-ucc_status_t ucc_tl_ucp_coll_init(ucc_base_coll_op_args_t *coll_args,
+
+ucc_status_t ucc_tl_ucp_coll_init(ucc_base_coll_args_t *coll_args,
                                   ucc_base_team_t *team,
                                   ucc_coll_task_t **task);
+
+ucc_status_t ucc_tl_ucp_populate_rcache(void *addr, size_t length,
+                                        ucs_memory_type_t mem_type,
+                                        ucc_tl_ucp_context_t *ctx);
+
+ucc_status_t ucc_tl_ucp_service_allreduce(ucc_base_team_t *team, void *sbuf,
+                                          void *rbuf, ucc_datatype_t dt,
+                                          size_t count, ucc_reduction_op_t op,
+                                          ucc_tl_team_subset_t subset,
+                                          ucc_coll_task_t **task);
+
+ucc_status_t ucc_tl_ucp_service_test(ucc_coll_task_t *task);
+
+ucc_status_t ucc_tl_ucp_service_cleanup(ucc_coll_task_t *task);
+
+void         ucc_tl_ucp_service_update_id(ucc_base_team_t *team, uint16_t id);
+
+ucc_status_t ucc_tl_ucp_team_get_scores(ucc_base_team_t   *tl_team,
+                                        ucc_coll_score_t **score);
 
 UCC_TL_IFACE_DECLARE(ucp, UCP);
 
@@ -72,3 +125,37 @@ ucs_memory_type_t ucc_memtype_to_ucs[UCC_MEMORY_TYPE_LAST+1] = {
     [UCC_MEMORY_TYPE_ROCM_MANAGED] = UCS_MEMORY_TYPE_ROCM_MANAGED,
     [UCC_MEMORY_TYPE_UNKNOWN]      = UCS_MEMORY_TYPE_UNKNOWN
 };
+
+void ucc_tl_ucp_pre_register_mem(ucc_tl_ucp_team_t *team, void *addr,
+                                 size_t length, ucc_memory_type_t mem_type)
+{
+    void *base_address  = addr;
+    size_t alloc_length = length;
+    ucc_mem_attr_t mem_attr;
+    ucc_status_t status;
+
+    mem_attr.field_mask = UCC_MEM_ATTR_FIELD_BASE_ADDRESS |
+                          UCC_MEM_ATTR_FIELD_ALLOC_LENGTH;
+    status = ucc_mc_query(addr, length, &mem_attr);
+    if (status == UCC_OK) {
+        base_address = mem_attr.base_address;
+        alloc_length = mem_attr.alloc_length;
+    } else {
+       tl_warn(UCC_TL_TEAM_LIB(team), "failed to query base addr and len");
+    }
+
+    status = ucc_tl_ucp_populate_rcache(base_address, alloc_length,
+                                        ucc_memtype_to_ucs[mem_type],
+                                        UCC_TL_UCP_TEAM_CTX(team));
+    if (status != UCC_OK) {
+        tl_warn(UCC_TL_TEAM_LIB(team), "ucc_tl_ucp_mem_map failed");
+    }
+}
+
+__attribute__((constructor)) static void tl_ucp_iface_init(void)
+{
+    ucc_tl_ucp.super.scoll.allreduce = ucc_tl_ucp_service_allreduce;
+    ucc_tl_ucp.super.scoll.test      = ucc_tl_ucp_service_test;
+    ucc_tl_ucp.super.scoll.cleanup   = ucc_tl_ucp_service_cleanup;
+    ucc_tl_ucp.super.scoll.update_id = ucc_tl_ucp_service_update_id;
+}
