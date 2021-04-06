@@ -5,7 +5,7 @@
       - github:
           url: "{jjb_git}"
       - build-discarder:
-          days-to-keep: 50
+          days-to-keep: 30
           num-to-keep: 20
       - inject:
           keep-system-variables: true
@@ -29,14 +29,6 @@
           name: "conf_file"
           default: ".ci/job_matrix.yaml"
           description: "Regex to select job config file"
-      - bool:
-          name: "do_release"
-          default: false
-          description: "Release rpm"
-      - string:
-          name: "release_dir"
-          default: "/.autodirect/sw/release/sw_acceleration/{jjb_proj}"
-          description: "Location to release rpm to"
       - string:
           name: "script"
           default: "{jjb_jenkinsfile}"
@@ -49,15 +41,15 @@
           name: "UCC_VERSION"
           default: "1.0.0"
           description: "UCC version"
-    #    triggers:
-    #        - github-pull-request:
-    #            cron: 'H/5 * * * *'
-    #            trigger-phrase: '.*\bbot:retest\b.*'
-    #            status-add-test-results: true
-    #            auth-id: '549927eb-7f38-4a8f-997a-81dd63605782'
-    #            org-list: ["Mellanox"]
-    #            white-list: ["swx-jenkins","swx-jenkins2","swx-jenkins3","mike-dubman","mellanox-github"]
-    #            allow-whitelist-orgs-as-admins: true
+    triggers:
+      - github-pull-request:
+          cron: 'H/5 * * * *'
+          trigger-phrase: '.*\bbot:retest\b.*'
+          status-add-test-results: true
+          auth-id: '549927eb-7f38-4a8f-997a-81dd63605782'
+          org-list: ["Mellanox"]
+          white-list: ["swx-jenkins","swx-jenkins2","swx-jenkins3","mellanox-github"]
+          allow-whitelist-orgs-as-admins: true
     pipeline-scm:
       scm:
         - git:
