@@ -46,6 +46,8 @@ mpirun \
     -x LD_LIBRARY_PATH \
     cat /proc/1/cgroup
 
+# CPU
+echo "INFO: UCC MPI unit tests (CPU) ..."
 # shellcheck disable=SC2086
 mpirun \
     -np $NP \
@@ -55,5 +57,34 @@ mpirun \
     --mca plm_rsh_args '-p 12345' \
     -x PATH \
     -x LD_LIBRARY_PATH \
-    -x MASTER_ADDR \
-    /opt/nvidia/torch-ucc/src/ucc/build/test/mpi/ucc_test_mpi
+    /opt/nvidia/torch-ucc/src/ucc/build/test/mpi/ucc_test_mpi --mtypes host
+echo "INFO: UCC MPI unit tests (CPU) ... DONE"
+
+# GPU with NCCL
+echo "INFO: UCC MPI unit tests (GPU with NCCL) ..."
+# shellcheck disable=SC2086
+mpirun \
+    -np $NP \
+    --hostfile ${HOSTFILE} \
+    --map-by node \
+    --allow-run-as-root \
+    --mca plm_rsh_args '-p 12345' \
+    -x PATH \
+    -x LD_LIBRARY_PATH \
+    /opt/nvidia/torch-ucc/src/ucc/build/test/mpi/ucc_test_mpi --mtypes cuda
+echo "INFO: UCC MPI unit tests (GPU with NCCL) ... DONE"
+
+# GPU without NCCL
+echo "INFO: UCC MPI unit tests (GPU without NCCL) ..."
+# shellcheck disable=SC2086
+mpirun \
+    -np $NP \
+    --hostfile ${HOSTFILE} \
+    --map-by node \
+    --allow-run-as-root \
+    --mca plm_rsh_args '-p 12345' \
+    -x PATH \
+    -x LD_LIBRARY_PATH \
+    -x UCC_TL_NCCL_COLL_SCORE 0 \
+    /opt/nvidia/torch-ucc/src/ucc/build/test/mpi/ucc_test_mpi --mtypes cuda
+echo "INFO: UCC MPI unit tests (GPU without NCCL) ... DONE"
