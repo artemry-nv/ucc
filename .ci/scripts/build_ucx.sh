@@ -11,4 +11,3 @@ make -j install
 echo "${UCX_INSTALL_DIR}/lib" > /etc/ld.so.conf.d/ucx.conf
 ldconfig
 ldconfig -p | grep -i ucx
-cd "${UCX_INSTALL_DIR}" && tar cfz "${TORCH_UCC_PKG_DIR}/ucx-${UCX_BUILD_TYPE}.tgz" --owner=0 --group=0 .

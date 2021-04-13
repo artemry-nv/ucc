@@ -10,4 +10,3 @@ cd "${TORCH_UCC_SRC_DIR}"
 python setup.py install bdist_wheel
 pip3 list | grep torch
 python -c 'import torch, torch_ucc'
-cp "${TORCH_UCC_SRC_DIR}/dist/"*.whl "${TORCH_UCC_PKG_DIR}"
