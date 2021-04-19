@@ -85,7 +85,7 @@ echo "INFO: UCC MPI unit tests (CPU) ... DONE"
 #    --mca plm_rsh_args '-p 12345' \
 #    -x PATH \
 #    -x LD_LIBRARY_PATH \
-#    -x UCC_TL_NCCL_COLL_SCORE 0 \
+#    -x UCC_TL_NCCL_SCORE 0 \
 #    /opt/nvidia/torch-ucc/src/ucc/build/test/mpi/ucc_test_mpi --mtypes cuda --set_device 1 --root random:2 --count_bits 32,64 --displ_bits 32,64
 #echo "INFO: UCC MPI unit tests (GPU without NCCL) ... DONE"
 #
