@@ -54,7 +54,7 @@ steps:
     containerSelector: "{name:'fedora33'}"
     run: |
       echo "INFO: check environment"
-#      hostname
+      #hostname
       printenv
       cat /proc/1/cgroup
       cat /etc/*release*
