@@ -28,7 +28,7 @@ runs_on_dockers:
 #    tag: '${BUILD_NUMBER}',
 #    arch: 'x86_64',
 #    uri: '${UCC_URI_SUFFIX}',
-#    build_args: '--network=host --rm --no-cache --build-arg CUDA_VER=${CUDA_VER} --build-arg TORCH_UCC_ROOT_DIR=${TORCH_UCC_ROOT_DIR}',
+#    build_args: '--rm --no-cache --build-arg CUDA_VER=${CUDA_VER} --build-arg TORCH_UCC_ROOT_DIR=${TORCH_UCC_ROOT_DIR}',
 #    cloud: 'swx-k8s',
 #    nodeLabel: 'dockerserver && swx-clx01',
 #  }
@@ -38,7 +38,7 @@ runs_on_dockers:
     tag: 'latest',
     arch: 'x86_64',
     uri: 'x86_64/fedora33',
-    build_args: '--network=host --rm --no-cache',
+    build_args: '--rm --no-cache',
     cloud: 'swx-k8s',
   }
 
@@ -54,7 +54,7 @@ steps:
     containerSelector: "{name:'fedora33'}"
     run: |
       echo "INFO: check environment"
-      hostname
+#      hostname
       printenv
       cat /proc/1/cgroup
       cat /etc/*release*
