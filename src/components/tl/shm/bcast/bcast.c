@@ -179,7 +179,7 @@ static void ucc_tl_shm_bcast_progress(ucc_coll_task_t *coll_task)
     ucc_coll_args_t    args = TASK_ARGS(task);
     size_t             data_size =
         args.src.info.count * ucc_dt_size(args.src.info.datatype);
-    ucc_rank_t         root = (ucc_rank_t)args.root;
+    ucc_rank_t         root = task->root;
     ucc_rank_t         rank = UCC_TL_TEAM_RANK(team);
     ucc_tl_shm_seg_t * seg        = task->seg;
     ucc_tl_shm_tree_t *tree       = task->tree;
