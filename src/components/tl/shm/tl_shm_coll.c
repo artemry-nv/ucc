@@ -18,6 +18,7 @@ ucc_status_t ucc_tl_shm_coll_finalize(ucc_coll_task_t *coll_task)
         ucc_free(task->tree->top_tree);
         ucc_free(task->tree);
     }
+    tl_trace(UCC_TASK_LIB(task), "finalize coll task %p", task);
     UCC_TL_SHM_PROFILE_REQUEST_FREE(task);
     ucc_mpool_put(task);
     return UCC_OK;

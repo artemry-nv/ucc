@@ -22,7 +22,8 @@ void ucc_tl_shm_kn_tree_init(ucc_rank_t      size,      /* group size */
 
     radix = ucc_min(radix, size);
 
-    if (coll_type == UCC_COLL_TYPE_BCAST) {
+    if (coll_type == UCC_COLL_TYPE_BCAST ||
+        coll_type == UCC_COLL_TYPE_FANOUT) {
         while (dist < size) {
             dist *= radix;
         }
@@ -52,7 +53,9 @@ void ucc_tl_shm_kn_tree_init(ucc_rank_t      size,      /* group size */
                 calc_parent    = 1;
             }
         }
-        dist = coll_type == UCC_COLL_TYPE_BCAST ? dist / radix : dist * radix;
+        dist = (coll_type == UCC_COLL_TYPE_BCAST ||
+                coll_type == UCC_COLL_TYPE_FANOUT) ? dist / radix
+                                                   : dist * radix;
     }
     if (rank == root) {
         tree_p->parent = UCC_RANK_INVALID;
