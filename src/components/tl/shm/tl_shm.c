@@ -150,21 +150,32 @@ ucc_status_t ucc_tl_shm_team_destroy(ucc_base_team_t *tl_team);
 ucc_status_t ucc_tl_shm_coll_init(ucc_base_coll_args_t *coll_args,
                                   ucc_base_team_t *team, ucc_coll_task_t **task)
 {
+    ucc_status_t status;
+
     switch (coll_args->args.coll_type) {
     case UCC_COLL_TYPE_BCAST:
-        return ucc_tl_shm_bcast_init(coll_args, team, task);
+        status = ucc_tl_shm_bcast_init(coll_args, team, task);
+        break;
     case UCC_COLL_TYPE_REDUCE:
-        return ucc_tl_shm_reduce_init(coll_args, team, task);
+        status = ucc_tl_shm_reduce_init(coll_args, team, task);
+        break;
     case UCC_COLL_TYPE_FANIN:
-        return ucc_tl_shm_fanin_init(coll_args, team, task);
+        status = ucc_tl_shm_fanin_init(coll_args, team, task);
+        break;
     case UCC_COLL_TYPE_FANOUT:
-        return ucc_tl_shm_fanout_init(coll_args, team, task);
+        status = ucc_tl_shm_fanout_init(coll_args, team, task);
+        break;
     case UCC_COLL_TYPE_BARRIER:
-        return ucc_tl_shm_barrier_init(coll_args, team, task);
+        status = ucc_tl_shm_barrier_init(coll_args, team, task);
+        break;
     default:
+        status = UCC_ERR_NOT_SUPPORTED;
         break;
     }
-    return UCC_ERR_NOT_SUPPORTED;
+    tl_trace(UCC_TASK_LIB(task), "init coll task=%p coll_type=%s status=%s",
+             task, ucc_coll_type_str(coll_args->args.coll_type),
+             ucc_status_string(status));
+    return status;
 }
 
 ucc_status_t ucc_tl_shm_team_get_scores(ucc_base_team_t *  tl_team,
