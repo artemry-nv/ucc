@@ -38,8 +38,7 @@ ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
             /* I am leaf in base tree so need to copy from user buffer into my shm */
             dst = is_inline ? my_ctrl->data
                             : ucc_tl_shm_get_data(seg, team, team_rank);
-            memcpy(dst, UCC_IS_INPLACE(*args) ? args->dst.info.buffer
-                        : args->src.info.buffer, count * ucc_dt_size(dt));
+            memcpy(dst, args->src.info.buffer, count * ucc_dt_size(dt));
             ucc_memory_cpu_store_fence();
         }
         my_ctrl->pi = seq_num; //signals to parent
@@ -82,6 +81,9 @@ ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
             task->cur_child = i;
             return UCC_INPROGRESS;
         }
+    }
+    if (task->root != team_rank && tree->parent == UCC_RANK_INVALID) {
+        return UCC_OK;
     }
     my_ctrl->pi = seq_num; //signals to parent
     return UCC_OK;

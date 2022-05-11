@@ -84,7 +84,7 @@ ucc_status_t ucc_tl_shm_bcast_read(ucc_tl_shm_team_t *team,
             ucc_memory_cpu_store_fence();
             (*is_op_root)++;
         }
-        ucc_tl_shm_signal_to_children(seg, team, seq_num, tree);
+        ucc_tl_shm_signal_to_children(seg, team, seq_num, tree); //in bcast read add all the ci loop from end of bcast progress before signal to children
         return UCC_OK;
     }
     parent = tree->parent;
