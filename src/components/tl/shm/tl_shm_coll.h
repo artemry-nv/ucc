@@ -22,6 +22,16 @@ typedef struct ucc_tl_shm_task {
     ucc_rank_t                      data_rank;
     ucc_rank_t                      cur_child;
     ucc_rank_t                      root;
+    struct {
+        ucc_tl_shm_tree_t *bcast_tree;
+        ucc_tl_shm_tree_t *reduce_tree;
+        int                bcast_base_tree_only;
+        int                reduce_base_tree_only;
+        ucc_rank_t         bcast_base_radix;
+        ucc_rank_t         bcast_top_radix;
+        ucc_rank_t         reduce_base_radix;
+        ucc_rank_t         reduce_top_radix;
+    } allreduce;
 } ucc_tl_shm_task_t;
 
 ucc_status_t ucc_tl_shm_coll_finalize(ucc_coll_task_t *coll_task);
@@ -109,28 +119,36 @@ static inline ucc_status_t ucc_tl_shm_bcast_seg_ready(ucc_tl_shm_seg_t *seg,
     ucc_tl_shm_ctrl_t *ctrl;
     int                i;
 
-    ctrl = ucc_tl_shm_get_ctrl(seg, team, UCC_TL_TEAM_RANK(team));
-    if (ctrl->ci != seq_num) {
-        return UCC_INPROGRESS;
-    }
+//    ctrl = ucc_tl_shm_get_ctrl(seg, team, UCC_TL_TEAM_RANK(team));
+//    if (ctrl->ci != seq_num) {
+//        return UCC_INPROGRESS;
+//    }
+//
+//    if (tree->top_tree) {
+//        for (i = 0; i < tree->top_tree->n_children; i++) {
+//            ctrl = ucc_tl_shm_get_ctrl(seg, team, tree->top_tree->children[i]);
+//            if (ctrl->ci != seq_num) {
+//                return UCC_INPROGRESS;
+//            }
+//        }
+//    }
+//
+//    if (tree->base_tree) {
+//        for (i = 0; i < tree->base_tree->n_children; i++) {
+//            ctrl = ucc_tl_shm_get_ctrl(seg, team, tree->base_tree->children[i]);
+//            if (ctrl->ci != seq_num) {
+//                return UCC_INPROGRESS;
+//            }
+//        }
+//    }
 
-    if (tree->top_tree) {
-        for (i = 0; i < tree->top_tree->n_children; i++) {
-            ctrl = ucc_tl_shm_get_ctrl(seg, team, tree->top_tree->children[i]);
-            if (ctrl->ci != seq_num) {
-                return UCC_INPROGRESS;
-            }
+    for (i = 0; i < UCC_TL_TEAM_SIZE(team); i++) {
+        ctrl = ucc_tl_shm_get_ctrl(seg, team, i);
+        if (ctrl->ci != seq_num) {
+            return UCC_INPROGRESS;
         }
     }
 
-    if (tree->base_tree) {
-        for (i = 0; i < tree->base_tree->n_children; i++) {
-            ctrl = ucc_tl_shm_get_ctrl(seg, team, tree->base_tree->children[i]);
-            if (ctrl->ci != seq_num) {
-                return UCC_INPROGRESS;
-            }
-        }
-    }
     return UCC_OK;
 }
 
