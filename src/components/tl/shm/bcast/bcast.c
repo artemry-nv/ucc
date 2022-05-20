@@ -13,7 +13,8 @@ enum
     BCAST_STAGE_START,
     BCAST_STAGE_BASE_TREE,
     BCAST_STAGE_TOP_TREE,
-    BCAST_STAGE_CI,
+    BCAST_STAGE_BASE_CI,
+    BCAST_STAGE_TOP_CI,
 };
 
 static ucc_status_t ucc_tl_shm_bcast_write(ucc_tl_shm_team_t *team,
@@ -170,8 +171,11 @@ next_stage:
                           is_inline, &is_op_root, data_size), task, out);
         }
         break;
-    case BCAST_STAGE_CI:
-        goto ci;
+    case BCAST_STAGE_TOP_CI:
+        goto ci_top;
+        break;
+    case BCAST_STAGE_BASE_CI:
+        goto ci_base;
         break;
     }
 
@@ -207,22 +211,36 @@ next_stage:
         ucc_memory_cpu_store_fence();
     }
 
-    if (!is_op_root && tree->top_tree && tree->base_tree &&
-        tree->base_tree->parent == UCC_RANK_INVALID &&
-        task->progress_alg == BCAST_WR) {
-        /* This handles a special case of potential race:
-           it only can happen when algorithm is WR and 2 trees are used.
-           Socket leader which is not actual op root must wait for its
-           children to complete reading the data from its SHM before it
-           can set its own CI (signalling the seg can be re-used).
+    /* Thes next conditions handle special case of potential race:
+       it only can happen when algorithm is using bcast_read function,
+       2 trees are used, and multiple colls are being called in a row.
+       Socket leader which is not actual op root must wait for its
+       children to complete reading the data from its SHM before it
+       can set its own CI (signalling the seg can be re-used).
 
-           Otherwise, parent rank of this socket leader in the top tree
-           (either actual root or another socket leader) may overwrite the
-           SHM data in the subsequent bcast, while the data is not entirely
-           copied by leafs.
-        */
-        task->stage = BCAST_STAGE_CI;
-    ci:
+       Otherwise, parent rank of this socket leader
+       (either actual root or another socket leader) may overwrite the
+       SHM data in the subsequent bcast, while the data is not entirely
+       copied by leafs.
+    */
+    if (tree->top_tree && tree->top_tree->n_children > 0 &&
+        (task->progress_alg == BCAST_RW || task->progress_alg == BCAST_RR)) {
+        task->stage = BCAST_STAGE_TOP_CI;
+    ci_top:
+        for (i = 0; i < tree->top_tree->n_children; i++) {
+            ucc_tl_shm_ctrl_t *ctrl =
+                ucc_tl_shm_get_ctrl(seg, team, tree->top_tree->children[i]);
+            if (ctrl->ci < task->seq_num) {
+                return;
+            }
+        }
+        my_ctrl = ucc_tl_shm_get_ctrl(seg, team, rank);
+    }
+
+    if (tree->base_tree && tree->base_tree->n_children > 0 &&
+        (task->progress_alg == BCAST_WR || task->progress_alg == BCAST_RR)) {
+        task->stage = BCAST_STAGE_BASE_CI;
+    ci_base:
         for (i = 0; i < tree->base_tree->n_children; i++) {
             ucc_tl_shm_ctrl_t *ctrl =
                 ucc_tl_shm_get_ctrl(seg, team, tree->base_tree->children[i]);
@@ -232,6 +250,7 @@ next_stage:
         }
         my_ctrl = ucc_tl_shm_get_ctrl(seg, team, rank);
     }
+
     my_ctrl->ci = task->seq_num;
     /* bcast done */
     task->super.status = UCC_OK;
