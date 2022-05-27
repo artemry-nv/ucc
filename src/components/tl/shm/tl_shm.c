@@ -29,6 +29,11 @@ static const char *seg_layout[] = {[SEG_LAYOUT_CONTIG] = "contig",
                                    [SEG_LAYOUT_MIXED]  = "mixed",
                                    [SEG_LAYOUT_LAST]   = NULL};
 
+static const char *group_mode[] = {[GROUP_BY_NUMA]   = "numa",
+                                   [GROUP_BY_SOCKET] = "socket",
+                                   [GROUP_BY_AUTO]   = "auto",
+                                   [GROUP_BY_LAST]   = NULL};
+
 static ucc_config_field_t ucc_tl_shm_lib_config_table[] = {
     {"", "", NULL, ucc_offsetof(ucc_tl_shm_lib_config_t, super),
      UCC_CONFIG_TYPE_TABLE(ucc_tl_lib_config_table)},
@@ -107,8 +112,12 @@ static ucc_config_field_t ucc_tl_shm_lib_config_table[] = {
      ucc_offsetof(ucc_tl_shm_lib_config_t, set_perf_params),
      UCC_CONFIG_TYPE_BOOL},
 
-    {"GROUP_MODE", "socket", "group mode - numa or socket",
-     ucc_offsetof(ucc_tl_shm_lib_config_t, group_mode), UCC_CONFIG_TYPE_STRING},
+    {"GROUP_MODE", "auto", "type of node subgrouping:\n"
+     " socket: processes bound to the same socket form a base group\n"
+     " numa: processes bound to the same numa node form a base group\n"
+     " auto: automatic selection\n",
+     ucc_offsetof(ucc_tl_shm_lib_config_t, group_mode),
+     UCC_CONFIG_TYPE_ENUM(group_mode)},
 
     {"SEG_LAYOUT", "contig",
      "layout of SM segments:\n"

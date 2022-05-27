@@ -272,17 +272,19 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
     ucc_tl_shm_context_t *ctx =
         ucc_derived_of(tl_context, ucc_tl_shm_context_t);
     ucc_status_t status;
-    int          n_sbgps, i, max_trees;
+    int          n_sbgps, i, max_trees, numa_bound, sock_bound;
     ucc_rank_t   team_size;
     uint32_t     cfg_ctrl_size, group_size;
     ucc_subset_t subset;
     size_t       page_size;
+    ucc_tl_shm_group_mode_t gm;
+    ucc_sbgp_type_t         group_sbgp_type;
 
     UCC_CLASS_CALL_SUPER_INIT(ucc_tl_team_t, &ctx->super, params);
 
     if (NULL == UCC_TL_CORE_CTX(self)->topo) {
         /* CORE context does not have topo information -
-	 * local context mode */
+         * local context mode */
         return UCC_ERR_NOT_SUPPORTED;
     }
 
@@ -308,7 +310,7 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
                                    team_size;
     self->max_inline         = cfg_ctrl_size - ucc_offsetof(ucc_tl_shm_ctrl_t,
                                                             data);
-
+    gm                       = UCC_TL_SHM_TEAM_LIB(self)->cfg.group_mode;
     status = ucc_topo_init(subset, UCC_TL_CORE_CTX(self)->topo, &self->topo);
 
     if (UCC_OK != status) {
@@ -321,9 +323,19 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
         status = UCC_ERR_INVALID_PARAM;
         goto err_topo_cleanup;
     }
+    sock_bound = UCC_TL_CORE_CTX(self)->topo->sock_bound;
+    numa_bound = UCC_TL_CORE_CTX(self)->topo->numa_bound;
 
-    if (UCC_TL_CORE_CTX(self)->topo->sock_bound != 1) {
-        tl_debug(ctx->super.super.lib, "sock bound is not supported");
+    if (sock_bound != 1 && gm == GROUP_BY_SOCKET) {
+        tl_debug(ctx->super.super.lib, "group_mode SOCKET can not be used "
+                 "because processes are not bound to sockets");
+        status = UCC_ERR_NOT_SUPPORTED;
+        goto err_topo_cleanup;
+    }
+
+    if (numa_bound != 1 && gm == GROUP_BY_NUMA) {
+        tl_debug(ctx->super.super.lib, "group_mode NUMA can not be used "
+                 "because processes are not bound to numa nodes");
         status = UCC_ERR_NOT_SUPPORTED;
         goto err_topo_cleanup;
     }
@@ -362,11 +374,14 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
     }
 
     self->tree_cache->size = 0;
+    group_sbgp_type        = UCC_SBGP_SOCKET_LEADERS;
 
-    /* sbgp type gl is either SOCKET_LEADERS or NUMA_LEADERS
-     * depending on the config: grouping type */
-    self->leaders_group =
-        ucc_topo_get_sbgp(self->topo, UCC_SBGP_SOCKET_LEADERS);
+    if (gm == GROUP_BY_NUMA ||
+        (gm == GROUP_BY_AUTO &&
+         (ucc_topo_n_numas(self->topo) > ucc_topo_n_sockets(self->topo)))) {
+        group_sbgp_type = UCC_SBGP_NUMA_LEADERS;
+    }
+    self->leaders_group = ucc_topo_get_sbgp(self->topo, group_sbgp_type);
 
     if (self->leaders_group->status == UCC_SBGP_NOT_EXISTS ||
         self->leaders_group->group_size == team_size) {
@@ -377,10 +392,19 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
         /* sbgp type is either SOCKET or NUMA
      * depending on the config: grouping type */
         self->n_base_groups = self->leaders_group->group_size;
-        ucc_assert(self->n_base_groups == self->topo->n_sockets);
 
-        status =
-            ucc_topo_get_all_sockets(self->topo, &self->base_groups, &n_sbgps);
+        ucc_assert(self->n_base_groups ==
+                   ((group_sbgp_type == UCC_SBGP_SOCKET_LEADERS)
+                        ? self->topo->n_sockets
+                        : self->topo->n_numas));
+
+        if (group_sbgp_type == UCC_SBGP_SOCKET_LEADERS) {
+            status = ucc_topo_get_all_sockets(self->topo, &self->base_groups,
+                                              &n_sbgps);
+        } else {
+            status = ucc_topo_get_all_numas(self->topo, &self->base_groups,
+                                            &n_sbgps);
+        }
         if (UCC_OK != status) {
             tl_error(ctx->super.super.lib, "failed to get all base subgroups");
             goto err_sockets;
