@@ -64,9 +64,11 @@ next_stage:
         if (reduce_tree->top_tree) {
             task->stage = ALLREDUCE_STAGE_TOP_TREE_REDUCE;
         } else {
-            args->src.info.buffer = args->dst.info.buffer;
-            task->stage = ALLREDUCE_STAGE_BASE_TREE_BCAST;
-            task->tree = task->allreduce.bcast_tree;
+            args->src.info.buffer = args->dst.info.buffer; // needed to fit bcast api
+            task->stage = bcast_tree->top_tree ?
+                          ALLREDUCE_STAGE_TOP_TREE_BCAST :
+                          ALLREDUCE_STAGE_BASE_TREE_BCAST;
+            task->tree = bcast_tree;
             task->seq_num++; /* finished reduce, need seq_num to be updated for bcast */
         }
         my_ctrl = ucc_tl_shm_get_ctrl(seg, team, rank);
@@ -74,8 +76,9 @@ next_stage:
     case ALLREDUCE_STAGE_TOP_TREE_REDUCE:
         SHMCHECK_GOTO(ucc_tl_shm_reduce_read(team, seg, task, reduce_tree->top_tree,
                       is_inline, count, dt, mtype, args), task, out);
-        args->src.info.buffer = args->dst.info.buffer;
-        task->stage = ALLREDUCE_STAGE_TOP_TREE_BCAST;
+        args->src.info.buffer = args->dst.info.buffer; // needed to fit bcast api
+        task->stage = bcast_tree->top_tree ? ALLREDUCE_STAGE_TOP_TREE_BCAST :
+                                             ALLREDUCE_STAGE_BASE_TREE_BCAST;
         task->tree = bcast_tree;
         task->seq_num++; /* finished reduce, need seq_num to be updated for bcast */
         goto next_stage;

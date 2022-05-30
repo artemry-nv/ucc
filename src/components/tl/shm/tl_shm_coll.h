@@ -119,33 +119,26 @@ static inline ucc_status_t ucc_tl_shm_bcast_seg_ready(ucc_tl_shm_seg_t *seg,
     ucc_tl_shm_ctrl_t *ctrl;
     int                i;
 
-//    ctrl = ucc_tl_shm_get_ctrl(seg, team, UCC_TL_TEAM_RANK(team));
-//    if (ctrl->ci != seq_num) {
-//        return UCC_INPROGRESS;
-//    }
-//
-//    if (tree->top_tree) {
-//        for (i = 0; i < tree->top_tree->n_children; i++) {
-//            ctrl = ucc_tl_shm_get_ctrl(seg, team, tree->top_tree->children[i]);
-//            if (ctrl->ci != seq_num) {
-//                return UCC_INPROGRESS;
-//            }
-//        }
-//    }
-//
-//    if (tree->base_tree) {
-//        for (i = 0; i < tree->base_tree->n_children; i++) {
-//            ctrl = ucc_tl_shm_get_ctrl(seg, team, tree->base_tree->children[i]);
-//            if (ctrl->ci != seq_num) {
-//                return UCC_INPROGRESS;
-//            }
-//        }
-//    }
+    ctrl = ucc_tl_shm_get_ctrl(seg, team, UCC_TL_TEAM_RANK(team));
+    if (ctrl->ci != seq_num) {
+        return UCC_INPROGRESS;
+    }
 
-    for (i = 0; i < UCC_TL_TEAM_SIZE(team); i++) {
-        ctrl = ucc_tl_shm_get_ctrl(seg, team, i);
-        if (ctrl->ci != seq_num) {
-            return UCC_INPROGRESS;
+    if (tree->top_tree) {
+        for (i = 0; i < tree->top_tree->n_children; i++) {
+            ctrl = ucc_tl_shm_get_ctrl(seg, team, tree->top_tree->children[i]);
+            if (ctrl->ci != seq_num) {
+                return UCC_INPROGRESS;
+            }
+        }
+    }
+
+    if (tree->base_tree) {
+        for (i = 0; i < tree->base_tree->n_children; i++) {
+            ctrl = ucc_tl_shm_get_ctrl(seg, team, tree->base_tree->children[i]);
+            if (ctrl->ci != seq_num) {
+                return UCC_INPROGRESS;
+            }
         }
     }
 

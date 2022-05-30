@@ -84,7 +84,7 @@ ucc_status_t ucc_tl_shm_bcast_read(ucc_tl_shm_team_t *team,
             ucc_memory_cpu_store_fence();
             (*is_op_root)++;
         }
-        ucc_tl_shm_signal_to_children(seg, team, seq_num, tree); //in bcast read add all the ci loop from end of bcast progress before signal to children
+        ucc_tl_shm_signal_to_children(seg, team, seq_num, tree);
         return UCC_OK;
     }
     parent = tree->parent;
@@ -190,8 +190,8 @@ static void ucc_tl_shm_bcast_progress(ucc_coll_task_t *coll_task)
 next_stage:
     switch (task->stage) {
     case BCAST_STAGE_START:
-        if (/*(tree->base_tree && tree->base_tree->n_children > 0) ||
-            (tree->base_tree == NULL && tree->top_tree->n_children > 0)*/ is_op_root) {
+        if ((tree->base_tree && tree->base_tree->n_children > 0) ||
+            (tree->base_tree == NULL && tree->top_tree->n_children > 0)) {
             /* checks if previous collective has completed on the seg
                 TODO: can be optimized if we detect bcast->reduce pattern.*/
             SHMCHECK_GOTO(ucc_tl_shm_bcast_seg_ready(seg,
