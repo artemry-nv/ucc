@@ -24,7 +24,7 @@ static ucc_status_t ucc_tl_shm_bcast_write(ucc_tl_shm_team_t *team,
                                            int *is_op_root, size_t data_size)
 {
     ucc_rank_t         team_rank = UCC_TL_TEAM_RANK(team);
-    uint32_t           seq_num   = task->seq_num;
+    ucc_tl_shm_sn_t    seq_num   = task->seq_num;
     uint32_t           n_polls   = UCC_TL_SHM_TEAM_LIB(team)->cfg.n_polls;
     ucc_tl_shm_ctrl_t *my_ctrl;
     void *             src;
@@ -66,7 +66,7 @@ static ucc_status_t ucc_tl_shm_bcast_read(ucc_tl_shm_team_t *team,
                                           int *is_op_root, size_t data_size)
 {
     ucc_rank_t         team_rank = UCC_TL_TEAM_RANK(team);
-    uint32_t           seq_num   = task->seq_num;
+    ucc_tl_shm_sn_t    seq_num   = task->seq_num;
     uint32_t           n_polls   = UCC_TL_SHM_TEAM_LIB(team)->cfg.n_polls;
     void *             src, *dst;
     ucc_tl_shm_ctrl_t *parent_ctrl, *my_ctrl;
@@ -74,7 +74,6 @@ static ucc_status_t ucc_tl_shm_bcast_read(ucc_tl_shm_team_t *team,
     int                i;
 
     my_ctrl = ucc_tl_shm_get_ctrl(seg, team, team_rank);
-
     if (*is_op_root) {
         /* Only global op root needs to copy the data from user src to its shm */
         if (*is_op_root == 1) {
@@ -106,7 +105,10 @@ static ucc_status_t ucc_tl_shm_bcast_read(ucc_tl_shm_team_t *team,
                                 : ucc_tl_shm_get_data(seg, team, team_rank);
                 memcpy(dst, src, data_size);
                 ucc_memory_cpu_store_fence();
+                my_ctrl->rr = seq_num;
                 ucc_tl_shm_signal_to_children(seg, team, seq_num, tree);
+                memcpy(TASK_ARGS(task).src.info.buffer, dst, data_size);
+                *is_op_root = 2;
             }
             /* copy out to user dest is done in the end of base bcast alg */
             return UCC_OK;
@@ -209,6 +211,7 @@ next_stage:
         }
         memcpy(args.src.info.buffer, src, data_size);
         ucc_memory_cpu_store_fence();
+        my_ctrl->rr = task->seq_num;
     }
 
     /* Thes next conditions handle special case of potential race:
@@ -230,7 +233,7 @@ next_stage:
         for (i = 0; i < tree->top_tree->n_children; i++) {
             ucc_tl_shm_ctrl_t *ctrl =
                 ucc_tl_shm_get_ctrl(seg, team, tree->top_tree->children[i]);
-            if (ctrl->ci < task->seq_num) {
+            if (ctrl->rr < task->seq_num) {
                 return;
             }
         }
@@ -244,7 +247,7 @@ next_stage:
         for (i = 0; i < tree->base_tree->n_children; i++) {
             ucc_tl_shm_ctrl_t *ctrl =
                 ucc_tl_shm_get_ctrl(seg, team, tree->base_tree->children[i]);
-            if (ctrl->ci < task->seq_num) {
+            if (ctrl->rr < task->seq_num) {
                 return;
             }
         }
