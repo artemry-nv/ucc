@@ -20,6 +20,7 @@ typedef struct ucc_tl_shm_task {
     int                             base_tree_only;
     int                             first_reduce;
     ucc_tl_shm_bcast_progress_alg_t progress_alg;
+    ucc_rank_t                      data_rank;
     ucc_rank_t                      base_radix;
     ucc_rank_t                      top_radix;
     ucc_rank_t                      cur_child;
