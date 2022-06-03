@@ -159,7 +159,25 @@ typedef struct ucc_tl_shm_tree_cache {
     ucc_tl_shm_tree_cache_elems_t *elems;
 } ucc_tl_shm_tree_cache_t;
 
-typedef void (*perf_params_fn_t)(ucc_coll_task_t *);
+typedef struct ucc_tl_shm_perf_params {
+    int        base_tree_only;
+    ucc_rank_t base_radix;
+    ucc_rank_t top_radix;
+} ucc_tl_shm_perf_params_t;
+
+typedef struct ucc_tl_shm_pp_bcast {
+    ucc_tl_shm_perf_params_t        super;
+    ucc_tl_shm_bcast_progress_alg_t progress_alg;
+} ucc_tl_shm_pp_bcast_t;
+
+typedef struct ucc_tl_shm_pp_reduce {
+    ucc_tl_shm_perf_params_t super;
+} ucc_tl_shm_pp_reduce_t;
+
+typedef struct ucc_tl_shm_task ucc_tl_shm_task_t;
+typedef void (*perf_params_fn_t)(ucc_tl_shm_perf_params_t *params,
+                                 ucc_tl_shm_task_t *task);
+
 typedef struct ucc_tl_shm_perf_keys {
     ucc_cpu_vendor_t        cpu_vendor;
     ucc_cpu_model_t         cpu_model;

@@ -8,49 +8,63 @@
 #include "../tl_shm_coll.h"
 
 void ucc_tl_shm_perf_params_intel_broadwell_28_bcast(
-    ucc_coll_task_t *coll_task);
+    ucc_tl_shm_perf_params_t *params,
+    ucc_tl_shm_task_t *task);
 
 void ucc_tl_shm_perf_params_intel_broadwell_14_bcast(
-    ucc_coll_task_t *coll_task);
+    ucc_tl_shm_perf_params_t *params,
+    ucc_tl_shm_task_t *task);
 
-void ucc_tl_shm_perf_params_intel_broadwell_8_bcast(ucc_coll_task_t *coll_task);
+void ucc_tl_shm_perf_params_intel_broadwell_8_bcast(ucc_tl_shm_perf_params_t *params,
+                                                    ucc_tl_shm_task_t *task);
 
-void ucc_tl_shm_perf_params_intel_skylake_40_bcast(ucc_coll_task_t *coll_task);
+void ucc_tl_shm_perf_params_intel_skylake_40_bcast(ucc_tl_shm_perf_params_t *params,
+                                                   ucc_tl_shm_task_t *task);
 
-void ucc_tl_shm_perf_params_amd_rome_128_bcast(ucc_coll_task_t *coll_task);
+void ucc_tl_shm_perf_params_amd_rome_128_bcast(ucc_tl_shm_perf_params_t *params,
+                                               ucc_tl_shm_task_t *task);
 
 void ucc_tl_shm_perf_params_intel_broadwell_28_reduce(
-    ucc_coll_task_t *coll_task);
+    ucc_tl_shm_perf_params_t *params,
+    ucc_tl_shm_task_t *task);
 
 void ucc_tl_shm_perf_params_intel_broadwell_14_reduce(
-    ucc_coll_task_t *coll_task);
+    ucc_tl_shm_perf_params_t *params,
+    ucc_tl_shm_task_t *task);
 
 void ucc_tl_shm_perf_params_intel_broadwell_8_reduce(
-    ucc_coll_task_t *coll_task);
+    ucc_tl_shm_perf_params_t *params,
+    ucc_tl_shm_task_t *task);
 
-void ucc_tl_shm_perf_params_intel_skylake_40_reduce(ucc_coll_task_t *coll_task);
+void ucc_tl_shm_perf_params_intel_skylake_40_reduce(ucc_tl_shm_perf_params_t *params,
+                                                    ucc_tl_shm_task_t *task);
 
-void ucc_tl_shm_perf_params_amd_rome_128_reduce(ucc_coll_task_t *coll_task);
+void ucc_tl_shm_perf_params_amd_rome_128_reduce(ucc_tl_shm_perf_params_t *params,
+                                                ucc_tl_shm_task_t *task);
 
 static inline void
-ucc_tl_shm_perf_params_generic_bcast(ucc_coll_task_t *coll_task)
+ucc_tl_shm_perf_params_generic_bcast(ucc_tl_shm_perf_params_t *params,
+                                     ucc_tl_shm_task_t *task)
 {
-    ucc_tl_shm_task_t *task = ucc_derived_of(coll_task, ucc_tl_shm_task_t);
+    ucc_tl_shm_pp_bcast_t *p = ucc_derived_of(params,
+                                              ucc_tl_shm_pp_bcast_t);
 
-    task->progress_alg   = TASK_LIB(task)->cfg.bcast_alg;
-    task->base_tree_only = TASK_LIB(task)->cfg.base_tree_only;
-    task->base_radix     = TASK_LIB(task)->cfg.bcast_base_radix;
-    task->top_radix      = TASK_LIB(task)->cfg.bcast_top_radix;
+    p->progress_alg         = TASK_LIB(task)->cfg.bcast_alg;
+    p->super.base_tree_only = TASK_LIB(task)->cfg.base_tree_only;
+    p->super.base_radix     = TASK_LIB(task)->cfg.bcast_base_radix;
+    p->super.top_radix      = TASK_LIB(task)->cfg.bcast_top_radix;
 }
 
 static inline void
-ucc_tl_shm_perf_params_generic_reduce(ucc_coll_task_t *coll_task)
+ucc_tl_shm_perf_params_generic_reduce(ucc_tl_shm_perf_params_t *params,
+                                      ucc_tl_shm_task_t *task)
 {
-    ucc_tl_shm_task_t *task = ucc_derived_of(coll_task, ucc_tl_shm_task_t);
+    ucc_tl_shm_pp_reduce_t *p = ucc_derived_of(params,
+                                               ucc_tl_shm_pp_reduce_t);
 
-    task->base_tree_only = TASK_LIB(task)->cfg.base_tree_only;
-    task->base_radix     = TASK_LIB(task)->cfg.reduce_base_radix;
-    task->top_radix      = TASK_LIB(task)->cfg.reduce_top_radix;
+    p->super.base_tree_only = TASK_LIB(task)->cfg.base_tree_only;
+    p->super.base_radix     = TASK_LIB(task)->cfg.reduce_base_radix;
+    p->super.top_radix      = TASK_LIB(task)->cfg.reduce_top_radix;
 }
 
 static inline void

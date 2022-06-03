@@ -168,9 +168,10 @@ ucc_status_t ucc_tl_shm_reduce_init(ucc_base_coll_args_t *coll_args,
                                     ucc_base_team_t *     tl_team,
                                     ucc_coll_task_t **    task_h)
 {
-    ucc_tl_shm_team_t *team = ucc_derived_of(tl_team, ucc_tl_shm_team_t);
-    ucc_tl_shm_task_t *task;
-    ucc_status_t       status;
+    ucc_tl_shm_team_t     *team = ucc_derived_of(tl_team, ucc_tl_shm_team_t);
+    ucc_tl_shm_task_t     *task;
+    ucc_status_t           status;
+    ucc_tl_shm_pp_reduce_t params;
 
     if (UCC_IS_PERSISTENT(coll_args->args) ||
         coll_args->args.op == UCC_OP_AVG) {
@@ -182,15 +183,15 @@ ucc_status_t ucc_tl_shm_reduce_init(ucc_base_coll_args_t *coll_args,
         return UCC_ERR_NO_MEMORY;
     }
 
-    team->perf_params_reduce(&task->super);
+    team->perf_params_reduce(&params.super, task);
 
     task->super.post     = ucc_tl_shm_reduce_start;
     task->super.progress = ucc_tl_shm_reduce_progress;
     task->stage          = REDUCE_STAGE_START;
 
-    status = ucc_tl_shm_tree_init(team, coll_args->args.root, task->base_radix,
-                                  task->top_radix, &task->tree_in_cache,
-                                  UCC_COLL_TYPE_REDUCE, task->base_tree_only,
+    status = ucc_tl_shm_tree_init(team, coll_args->args.root, params.super.base_radix,
+                                  params.super.top_radix, &task->tree_in_cache,
+                                  UCC_COLL_TYPE_REDUCE, params.super.base_tree_only,
                                   &task->tree);
 
     if (ucc_unlikely(UCC_OK != status)) {

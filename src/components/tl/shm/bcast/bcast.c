@@ -267,6 +267,7 @@ ucc_status_t ucc_tl_shm_bcast_init(ucc_base_coll_args_t *coll_args,
     ucc_tl_shm_team_t *team = ucc_derived_of(tl_team, ucc_tl_shm_team_t);
     ucc_tl_shm_task_t *task;
     ucc_status_t       status;
+    ucc_tl_shm_pp_bcast_t params;
 
     if (UCC_IS_PERSISTENT(coll_args->args)) {
         return UCC_ERR_NOT_SUPPORTED;
@@ -281,15 +282,16 @@ ucc_status_t ucc_tl_shm_bcast_init(ucc_base_coll_args_t *coll_args,
         return UCC_ERR_NO_MEMORY;
     }
 
-    team->perf_params_bcast(&task->super);
+    team->perf_params_bcast(&params.super, task);
 
+    task->progress_alg   = params.progress_alg;
     task->super.post     = ucc_tl_shm_bcast_start;
     task->super.progress = ucc_tl_shm_bcast_progress;
     task->stage          = BCAST_STAGE_START;
 
-    status = ucc_tl_shm_tree_init(team, coll_args->args.root, task->base_radix,
-                                  task->top_radix, &task->tree_in_cache,
-                                  UCC_COLL_TYPE_BCAST, task->base_tree_only,
+    status = ucc_tl_shm_tree_init(team, coll_args->args.root, params.super.base_radix,
+                                  params.super.top_radix, &task->tree_in_cache,
+                                  UCC_COLL_TYPE_BCAST, params.super.base_tree_only,
                                   &task->tree);
 
     if (ucc_unlikely(UCC_OK != status)) {
