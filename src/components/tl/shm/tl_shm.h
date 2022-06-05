@@ -57,6 +57,14 @@ typedef enum ucc_tl_shm_seg_layout
     SEG_LAYOUT_LAST
 } ucc_tl_shm_seg_layout_t;
 
+typedef enum ucc_tl_shm_group_mode
+{
+    GROUP_BY_NUMA,
+    GROUP_BY_SOCKET,
+    GROUP_BY_AUTO,
+    GROUP_BY_LAST
+} ucc_tl_shm_group_mode_t;
+
 typedef struct ucc_kn_tree ucc_kn_tree_t;
 
 typedef struct ucc_tl_shm_iface {
@@ -87,7 +95,7 @@ typedef struct ucc_tl_shm_lib_config {
     uint32_t                        set_perf_params;
     ucc_tl_shm_seg_layout_t         layout;
     ucc_tl_shm_bcast_progress_alg_t bcast_alg;
-    char *                          group_mode;
+    ucc_tl_shm_group_mode_t         group_mode;
 } ucc_tl_shm_lib_config_t;
 
 typedef struct ucc_tl_shm_context_config {
