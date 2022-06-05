@@ -74,54 +74,59 @@ ucc_tl_shm_create_perf_func_list(ucc_tl_shm_team_t *      team,
 {
     size_t size = 0;
 
-    ucc_tl_shm_perf_keys_t intel_broadwell_28 = {
+    ucc_tl_shm_perf_keys_t intel_broadwell_2_14 = {
         .cpu_vendor  = UCC_CPU_VENDOR_INTEL,
         .cpu_model   = UCC_CPU_MODEL_INTEL_BROADWELL,
-        .team_size   = 28,
+        .groups      = {14, 14},
+        .n_groups    = 2,
         .layout      = SEG_LAYOUT_CONTIG,
         .bcast_func  = ucc_tl_shm_perf_params_intel_broadwell_28_bcast,
         .reduce_func = ucc_tl_shm_perf_params_intel_broadwell_28_reduce};
-    perf_funcs_keys[size] = intel_broadwell_28;
+    perf_funcs_keys[size] = intel_broadwell_2_14;
     size++;
 
-    ucc_tl_shm_perf_keys_t intel_broadwell_14 = {
+    ucc_tl_shm_perf_keys_t intel_broadwell_1_14 = {
         .cpu_vendor  = UCC_CPU_VENDOR_INTEL,
         .cpu_model   = UCC_CPU_MODEL_INTEL_BROADWELL,
-        .team_size   = 14,
+        .groups      = {14},
+        .n_groups    = 1,
         .layout      = UCC_TL_SHM_TEAM_LIB(team)->cfg.layout,
         .bcast_func  = ucc_tl_shm_perf_params_intel_broadwell_14_bcast,
         .reduce_func = ucc_tl_shm_perf_params_intel_broadwell_14_reduce};
-    perf_funcs_keys[size] = intel_broadwell_14;
+    perf_funcs_keys[size] = intel_broadwell_1_14;
     size++;
 
-    ucc_tl_shm_perf_keys_t intel_broadwell_8 = {
+    ucc_tl_shm_perf_keys_t intel_broadwell_1_8 = {
         .cpu_vendor  = UCC_CPU_VENDOR_INTEL,
         .cpu_model   = UCC_CPU_MODEL_INTEL_BROADWELL,
-        .team_size   = 8,
+        .groups      = {8},
+        .n_groups    = 1,
         .layout      = UCC_TL_SHM_TEAM_LIB(team)->cfg.layout,
         .bcast_func  = ucc_tl_shm_perf_params_intel_broadwell_8_bcast,
         .reduce_func = ucc_tl_shm_perf_params_intel_broadwell_8_reduce};
-    perf_funcs_keys[size] = intel_broadwell_8;
+    perf_funcs_keys[size] = intel_broadwell_1_8;
     size++;
 
-    ucc_tl_shm_perf_keys_t intel_skylake_40 = {
+    ucc_tl_shm_perf_keys_t intel_skylake_2_20 = {
         .cpu_vendor  = UCC_CPU_VENDOR_INTEL,
         .cpu_model   = UCC_CPU_MODEL_INTEL_SKYLAKE,
-        .team_size   = 40,
+        .groups      = {20, 20},
+        .n_groups    = 2,
         .layout      = SEG_LAYOUT_SOCKET,
         .bcast_func  = ucc_tl_shm_perf_params_intel_skylake_40_bcast,
         .reduce_func = ucc_tl_shm_perf_params_intel_skylake_40_reduce};
-    perf_funcs_keys[size] = intel_skylake_40;
+    perf_funcs_keys[size] = intel_skylake_2_20;
     size++;
 
-    ucc_tl_shm_perf_keys_t amd_rome_128 = {
+    ucc_tl_shm_perf_keys_t amd_rome_2_64 = {
         .cpu_vendor  = UCC_CPU_VENDOR_AMD,
         .cpu_model   = UCC_CPU_MODEL_AMD_ROME,
-        .team_size   = 128,
+        .groups      = {64, 64},
+        .n_groups    = 2,
         .layout      = SEG_LAYOUT_SOCKET,
         .bcast_func  = ucc_tl_shm_perf_params_amd_rome_128_bcast,
         .reduce_func = ucc_tl_shm_perf_params_amd_rome_128_reduce};
-    perf_funcs_keys[size] = amd_rome_128;
+    perf_funcs_keys[size] = amd_rome_2_64;
     size++;
 
     perf_funcs_list->size = size;

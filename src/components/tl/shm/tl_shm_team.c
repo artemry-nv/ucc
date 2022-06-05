@@ -93,9 +93,36 @@ static ucc_status_t ucc_tl_shm_group_rank_map_init(ucc_tl_shm_team_t *team)
     return UCC_OK;
 }
 
+static int _compare(const void *a, const void *b)
+{
+    return *((ucc_rank_t *)a) < *((ucc_rank_t *)b) ? -1 : 1;
+}
+
+static inline int check_groups_key(ucc_tl_shm_team_t *team,
+                                   ucc_tl_shm_perf_keys_t *key)
+{
+    ucc_rank_t groups[team->n_base_groups];
+    int i;
+
+
+    if (team->n_base_groups == key->n_groups) {
+        for (i = 0; i < team->n_base_groups; i++) {
+            groups[i] = team->base_groups[i].group_size;
+        }
+        qsort(groups, team->n_base_groups,
+              sizeof(ucc_rank_t), _compare);
+        for (i = 0; i < team->n_base_groups; i++) {
+            if (groups[i] != key->groups[i]) {
+                return 0;
+            }
+        }
+        return 1;
+    }
+    return 0;
+}
+
 static inline ucc_status_t ucc_tl_shm_set_perf_funcs(ucc_tl_shm_team_t *team)
 {
-    ucc_rank_t team_size = UCC_TL_TEAM_SIZE(team);
     int        i         = 0,
         max_size =
             20; // max size is general estimate,can be changed as more archs are added for perf selection
@@ -133,7 +160,7 @@ static inline ucc_status_t ucc_tl_shm_set_perf_funcs(ucc_tl_shm_team_t *team)
     for (i = 0; i < perf_funcs_list->size; i++) {
         if (perf_funcs_list->keys[i].cpu_vendor == vendor &&
             perf_funcs_list->keys[i].cpu_model == model &&
-            perf_funcs_list->keys[i].team_size == team_size) {
+            check_groups_key(team, &perf_funcs_list->keys[i])) {
             team->perf_params_bcast  = perf_funcs_list->keys[i].bcast_func;
             team->perf_params_reduce = perf_funcs_list->keys[i].reduce_func;
             team->layout             = perf_funcs_list->keys[i].layout;
