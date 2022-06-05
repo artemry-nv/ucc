@@ -109,10 +109,16 @@ typedef struct ucc_tl_shm_context {
 UCC_CLASS_DECLARE(ucc_tl_shm_context_t, const ucc_base_context_params_t *,
                   const ucc_base_config_t *);
 
+typedef uint32_t ucc_tl_shm_sn_t;
+
+#define UCC_TL_SHM_MAX_SN UINT32_MAX
+
 typedef struct ucc_tl_shm_ctrl {
-    volatile uint32_t pi;      /* producer index */
-    volatile uint32_t ci;      /* consumer index */
-    char              data[1]; /* start of inline data */
+    volatile ucc_tl_shm_sn_t pi;       /* producer index */
+    volatile ucc_tl_shm_sn_t ci;       /* consumer index */
+    volatile ucc_tl_shm_sn_t rr;       /* consumer index */
+    volatile ucc_tl_shm_sn_t reserved; /* consumer index */
+    char                     data[1];  /* start of inline data */
 } ucc_tl_shm_ctrl_t;
 
 typedef struct ucc_tl_shm_seg {
@@ -166,8 +172,8 @@ typedef struct ucc_tl_shm_team {
     perf_params_fn_t         perf_params_bcast;
     perf_params_fn_t         perf_params_reduce;
     ucc_tl_shm_seg_t *       segs;
-    uint32_t                 seq_num;
-    uint32_t *               last_posted;
+    ucc_tl_shm_sn_t          seq_num;
+    ucc_tl_shm_sn_t *        last_posted;
     uint32_t                 n_base_groups;
     uint32_t                 my_group_id;
     int *                    allgather_dst;

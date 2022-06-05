@@ -21,7 +21,7 @@ ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
                        ucc_memory_type_t mtype, ucc_coll_args_t *args)
 {
     ucc_rank_t         team_rank = UCC_TL_TEAM_RANK(team);
-    uint32_t           seq_num   = task->seq_num;
+    ucc_tl_shm_sn_t    seq_num   = task->seq_num;
     uint32_t           n_polls   = UCC_TL_SHM_TEAM_LIB(team)->cfg.n_polls;
     void *             src1, *src2, *dst;
     ucc_tl_shm_ctrl_t *child_ctrl, *my_ctrl;

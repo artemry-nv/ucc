@@ -13,18 +13,20 @@ enum
     BCAST_STAGE_START,
     BCAST_STAGE_BASE_TREE,
     BCAST_STAGE_TOP_TREE,
-    BCAST_STAGE_CI,
+    BCAST_STAGE_COPY_OUT,
+    BCAST_STAGE_READ_CHECK,
 };
 
-static ucc_status_t ucc_tl_shm_bcast_write(ucc_tl_shm_team_t *team,
-                                           ucc_tl_shm_seg_t * seg,
-                                           ucc_tl_shm_task_t *task,
-                                           ucc_kn_tree_t *tree, int is_inline,
-                                           int *is_op_root, size_t data_size)
+ucc_status_t ucc_tl_shm_bcast_write(ucc_tl_shm_team_t *team,
+                                    ucc_tl_shm_seg_t * seg,
+                                    ucc_tl_shm_task_t *task,
+                                    ucc_kn_tree_t *tree, int is_inline,
+                                    size_t data_size)
 {
-    ucc_rank_t         team_rank = UCC_TL_TEAM_RANK(team);
-    uint32_t           seq_num   = task->seq_num;
-    uint32_t           n_polls   = UCC_TL_SHM_TEAM_LIB(team)->cfg.n_polls;
+    ucc_rank_t      team_rank = UCC_TL_TEAM_RANK(team);
+    ucc_tl_shm_sn_t seq_num   = task->seq_num;
+    uint32_t        n_polls   = UCC_TL_SHM_TEAM_LIB(team)->cfg.n_polls;
+    int is_op_root            = (team_rank == (ucc_rank_t)TASK_ARGS(task).root);
     ucc_tl_shm_ctrl_t *my_ctrl;
     void *             src;
     int                i;
@@ -37,7 +39,7 @@ static ucc_status_t ucc_tl_shm_bcast_write(ucc_tl_shm_team_t *team,
            origin user src buffer.
            Otherwise, it must be base_tree in 2lvl alg,
            and the data of the tree root is in the local shm (ctrl or data) */
-        src = *is_op_root
+        src = is_op_root
                   ? TASK_ARGS(task).src.info.buffer
                   : (is_inline ? my_ctrl->data
                                : ucc_tl_shm_get_data(seg, team, team_rank));
@@ -51,6 +53,7 @@ static ucc_status_t ucc_tl_shm_bcast_write(ucc_tl_shm_team_t *team,
                             : ucc_tl_shm_get_data(seg, team, team_rank);
             ucc_tl_shm_copy_to_children(seg, team, tree, seq_num, is_inline,
                                         src, data_size);
+            task->data_rank = team_rank;
             /* copy out to user dest is done in the end of base bcast alg */
             return UCC_OK;
         }
@@ -58,14 +61,14 @@ static ucc_status_t ucc_tl_shm_bcast_write(ucc_tl_shm_team_t *team,
     return UCC_INPROGRESS;
 }
 
-static ucc_status_t ucc_tl_shm_bcast_read(ucc_tl_shm_team_t *team,
-                                          ucc_tl_shm_seg_t * seg,
-                                          ucc_tl_shm_task_t *task,
-                                          ucc_kn_tree_t *tree, int is_inline,
-                                          int *is_op_root, size_t data_size)
+ucc_status_t ucc_tl_shm_bcast_read(ucc_tl_shm_team_t *team,
+                                   ucc_tl_shm_seg_t * seg,
+                                   ucc_tl_shm_task_t *task, ucc_kn_tree_t *tree,
+                                   int is_inline, int *is_op_root,
+                                   size_t data_size)
 {
     ucc_rank_t         team_rank = UCC_TL_TEAM_RANK(team);
-    uint32_t           seq_num   = task->seq_num;
+    ucc_tl_shm_sn_t    seq_num   = task->seq_num;
     uint32_t           n_polls   = UCC_TL_SHM_TEAM_LIB(team)->cfg.n_polls;
     void *             src, *dst;
     ucc_tl_shm_ctrl_t *parent_ctrl, *my_ctrl;
@@ -73,7 +76,6 @@ static ucc_status_t ucc_tl_shm_bcast_read(ucc_tl_shm_team_t *team,
     int                i;
 
     my_ctrl = ucc_tl_shm_get_ctrl(seg, team, team_rank);
-
     if (*is_op_root) {
         /* Only global op root needs to copy the data from user src to its shm */
         if (*is_op_root == 1) {
@@ -97,6 +99,7 @@ static ucc_status_t ucc_tl_shm_bcast_read(ucc_tl_shm_team_t *team,
     }
     for (i = 0; i < n_polls; i++) {
         if (my_ctrl->pi == seq_num) {
+            task->data_rank = parent;
             parent_ctrl = ucc_tl_shm_get_ctrl(seg, team, parent);
             if (tree == task->tree->top_tree || tree->n_children > 0) {
                 src = is_inline ? parent_ctrl->data
@@ -105,6 +108,8 @@ static ucc_status_t ucc_tl_shm_bcast_read(ucc_tl_shm_team_t *team,
                                 : ucc_tl_shm_get_data(seg, team, team_rank);
                 memcpy(dst, src, data_size);
                 ucc_memory_cpu_store_fence();
+                my_ctrl->rr     = seq_num;
+                task->data_rank = team_rank;
                 ucc_tl_shm_signal_to_children(seg, team, seq_num, tree);
             }
             /* copy out to user dest is done in the end of base bcast alg */
@@ -112,6 +117,60 @@ static ucc_status_t ucc_tl_shm_bcast_read(ucc_tl_shm_team_t *team,
         }
     }
     return UCC_INPROGRESS;
+}
+
+void ucc_tl_shm_bcast_copy_out(ucc_tl_shm_task_t *task)
+{
+    ucc_tl_shm_team_t *team = TASK_TEAM(task);
+    ucc_coll_args_t    args = TASK_ARGS(task);
+    size_t             data_size =
+        args.src.info.count * ucc_dt_size(args.src.info.datatype);
+    ucc_rank_t         root      = (ucc_rank_t)args.root;
+    ucc_rank_t         rank      = UCC_TL_TEAM_RANK(team);
+    ucc_tl_shm_seg_t * seg       = task->seg;
+    int                is_inline = data_size <= team->max_inline;
+    ucc_tl_shm_ctrl_t *my_ctrl, *data_ctrl;
+    void *             src;
+
+    if (rank != root) {
+        my_ctrl   = ucc_tl_shm_get_ctrl(seg, team, rank);
+        data_ctrl = ucc_tl_shm_get_ctrl(seg, team, task->data_rank);
+        src       = is_inline ? data_ctrl->data
+                              : ucc_tl_shm_get_data(seg, team, task->data_rank);
+        memcpy(args.src.info.buffer, src, data_size);
+        ucc_memory_cpu_store_fence();
+        my_ctrl->rr = task->seq_num;
+    }
+}
+
+ucc_status_t ucc_tl_shm_bcast_check_read_ready(ucc_tl_shm_task_t *task)
+{
+    ucc_tl_shm_team_t *team = TASK_TEAM(task);
+    ucc_tl_shm_seg_t * seg  = task->seg;
+    ucc_tl_shm_tree_t *tree = task->tree;
+    ucc_tl_shm_ctrl_t *ctrl;
+    int                i;
+
+    if (tree->top_tree && tree->top_tree->n_children > 0 &&
+        (task->progress_alg == BCAST_RW || task->progress_alg == BCAST_RR)) {
+        for (i = 0; i < tree->top_tree->n_children; i++) {
+            ctrl = ucc_tl_shm_get_ctrl(seg, team, tree->top_tree->children[i]);
+            if (ctrl->rr < task->seq_num) {
+                return UCC_INPROGRESS;
+            }
+        }
+    }
+
+    if (tree->base_tree && tree->base_tree->n_children > 0 &&
+        (task->progress_alg == BCAST_WR || task->progress_alg == BCAST_RR)) {
+        for (i = 0; i < tree->base_tree->n_children; i++) {
+            ctrl = ucc_tl_shm_get_ctrl(seg, team, tree->base_tree->children[i]);
+            if (ctrl->rr < task->seq_num) {
+                return UCC_INPROGRESS;
+            }
+        }
+    }
+    return UCC_OK;
 }
 
 static void ucc_tl_shm_bcast_progress(ucc_coll_task_t *coll_task)
@@ -123,14 +182,11 @@ static void ucc_tl_shm_bcast_progress(ucc_coll_task_t *coll_task)
         args.src.info.count * ucc_dt_size(args.src.info.datatype);
     ucc_rank_t         root = (ucc_rank_t)args.root;
     ucc_rank_t         rank = UCC_TL_TEAM_RANK(team);
-    ucc_rank_t         parent;
     ucc_tl_shm_seg_t * seg        = task->seg;
     ucc_tl_shm_tree_t *tree       = task->tree;
     int                is_inline  = data_size <= team->max_inline;
     int                is_op_root = rank == root;
-    ucc_tl_shm_ctrl_t *my_ctrl, *parent_ctrl;
-    void *             src;
-    int                i;
+    ucc_tl_shm_ctrl_t *my_ctrl;
 
 next_stage:
     switch (task->stage) {
@@ -150,8 +206,10 @@ next_stage:
         goto next_stage;
     case BCAST_STAGE_TOP_TREE:
         if (task->progress_alg == BCAST_WW || task->progress_alg == BCAST_WR) {
-            SHMCHECK_GOTO(ucc_tl_shm_bcast_write(team, seg, task, tree->top_tree,
-                          is_inline, &is_op_root, data_size), task, out);
+            SHMCHECK_GOTO(ucc_tl_shm_bcast_write(team, seg, task,
+                                                 tree->top_tree, is_inline,
+                                                 data_size),
+                          task, out);
         } else {
             SHMCHECK_GOTO(ucc_tl_shm_bcast_read(team, seg, task, tree->top_tree,
                           is_inline, &is_op_root, data_size), task, out);
@@ -159,79 +217,29 @@ next_stage:
         if (tree->base_tree) {
             task->stage = BCAST_STAGE_BASE_TREE;
             goto next_stage;
+        } else {
+            task->stage = BCAST_STAGE_COPY_OUT;
         }
         break;
     case BCAST_STAGE_BASE_TREE:
         if (task->progress_alg == BCAST_WW || task->progress_alg == BCAST_RW) {
-            SHMCHECK_GOTO(ucc_tl_shm_bcast_write(team, seg, task, tree->base_tree,
-                          is_inline, &is_op_root, data_size), task, out);
+            SHMCHECK_GOTO(ucc_tl_shm_bcast_write(team, seg, task,
+                                                 tree->base_tree, is_inline,
+                                                 data_size),
+                          task, out);
         } else {
             SHMCHECK_GOTO(ucc_tl_shm_bcast_read(team, seg, task, tree->base_tree,
                           is_inline, &is_op_root, data_size), task, out);
         }
+    case BCAST_STAGE_COPY_OUT:
+        ucc_tl_shm_bcast_copy_out(task);
+        task->stage = BCAST_STAGE_READ_CHECK;
+    case BCAST_STAGE_READ_CHECK:
+        SHMCHECK_GOTO(ucc_tl_shm_bcast_check_read_ready(task), task, out);
         break;
-    case BCAST_STAGE_CI:
-        goto ci;
-        break;
     }
 
-    /* Copy out to user dest:
-       Where is data?
-       If we did READ as 2nd step then the data is in the base_tree->parent SHM
-       If we did WRITE as 2nd step then the data is in my SHM */
-
-    my_ctrl = ucc_tl_shm_get_ctrl(seg, team, rank);
-
-    if (!is_op_root) {
-        if (task->progress_alg == BCAST_WW || task->progress_alg == BCAST_RW) {
-            src = is_inline ? my_ctrl->data
-                            : ucc_tl_shm_get_data(seg, team, rank);
-        } else {
-            if (task->progress_alg == BCAST_RR) {
-                parent = (tree->base_tree &&
-                          tree->base_tree->parent != UCC_RANK_INVALID)
-                             ? tree->base_tree->parent
-                             : tree->top_tree->parent;
-            } else {
-                parent = tree->base_tree
-                             ? ((tree->base_tree->parent == UCC_RANK_INVALID)
-                                    ? rank
-                                    : tree->base_tree->parent)
-                             : rank;
-            }
-            parent_ctrl = ucc_tl_shm_get_ctrl(seg, team, parent);
-            src         = is_inline ? parent_ctrl->data
-                                    : ucc_tl_shm_get_data(seg, team, parent);
-        }
-        memcpy(args.src.info.buffer, src, data_size);
-        ucc_memory_cpu_store_fence();
-    }
-
-    if (!is_op_root && tree->top_tree && tree->base_tree &&
-        tree->base_tree->parent == UCC_RANK_INVALID &&
-        task->progress_alg == BCAST_WR) {
-        /* This handles a special case of potential race:
-           it only can happen when algorithm is WR and 2 trees are used.
-           Socket leader which is not actual op root must wait for its
-           children to complete reading the data from its SHM before it
-           can set its own CI (signalling the seg can be re-used).
-
-           Otherwise, parent rank of this socket leader in the top tree
-           (either actual root or another socket leader) may overwrite the
-           SHM data in the subsequent bcast, while the data is not entirely
-           copied by leafs.
-        */
-        task->stage = BCAST_STAGE_CI;
-    ci:
-        for (i = 0; i < tree->base_tree->n_children; i++) {
-            ucc_tl_shm_ctrl_t *ctrl =
-                ucc_tl_shm_get_ctrl(seg, team, tree->base_tree->children[i]);
-            if (ctrl->ci < task->seq_num) {
-                return;
-            }
-        }
-        my_ctrl = ucc_tl_shm_get_ctrl(seg, team, rank);
-    }
+    my_ctrl     = ucc_tl_shm_get_ctrl(seg, team, rank);
     my_ctrl->ci = task->seq_num;
     /* bcast done */
     task->super.status = UCC_OK;

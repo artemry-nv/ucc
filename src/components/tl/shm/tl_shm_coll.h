@@ -13,13 +13,14 @@ typedef struct ucc_tl_shm_task {
     ucc_coll_task_t                 super;
     ucc_tl_shm_seg_t *              seg;
     ucc_tl_shm_tree_t *             tree;
-    uint32_t                        seq_num;
-    uint32_t                        seg_ready_seq_num;
+    ucc_tl_shm_sn_t                 seq_num;
+    ucc_tl_shm_sn_t                 seg_ready_seq_num;
     int                             stage;
     int                             tree_in_cache;
     int                             base_tree_only;
     int                             first_reduce;
     ucc_tl_shm_bcast_progress_alg_t progress_alg;
+    ucc_rank_t                      data_rank;
     ucc_rank_t                      base_radix;
     ucc_rank_t                      top_radix;
     ucc_rank_t                      cur_child;
@@ -41,7 +42,8 @@ ucc_tl_shm_get_task(ucc_base_coll_args_t *coll_args, ucc_tl_shm_team_t *team)
 
     UCC_TL_SHM_PROFILE_REQUEST_NEW(task, "tl_shm_task", 0);
     ucc_coll_task_init(&task->super, coll_args, &team->super.super);
-    task->seq_num        = team->seq_num++;
+    task->seq_num = team->seq_num;
+    team->seq_num = ((team->seq_num + 1) % UCC_TL_SHM_MAX_SN);
     task->seg =
         &team->segs[(task->seq_num % team->n_concurrent) * team->n_base_groups];
     task->super.finalize = ucc_tl_shm_coll_finalize;
@@ -102,7 +104,7 @@ ucc_tl_shm_get_data(ucc_tl_shm_seg_t *seg, ucc_tl_shm_team_t *team,
     } while (0)
 
 static inline ucc_status_t ucc_tl_shm_bcast_seg_ready(ucc_tl_shm_seg_t *seg,
-                                                      uint32_t          seq_num,
+                                                      ucc_tl_shm_sn_t   seq_num,
                                                       ucc_tl_shm_team_t *team,
                                                       ucc_tl_shm_tree_t *tree)
 {
@@ -135,7 +137,7 @@ static inline ucc_status_t ucc_tl_shm_bcast_seg_ready(ucc_tl_shm_seg_t *seg,
 }
 
 static inline ucc_status_t ucc_tl_shm_reduce_seg_ready(ucc_tl_shm_seg_t *seg,
-                                                       uint32_t seq_num,
+                                                       ucc_tl_shm_sn_t seq_num,
                                                        ucc_tl_shm_team_t *team,
                                                        ucc_tl_shm_tree_t *tree)
 {
@@ -170,11 +172,10 @@ static inline ucc_status_t ucc_tl_shm_reduce_seg_ready(ucc_tl_shm_seg_t *seg,
     return UCC_OK;
 }
 
-static inline void ucc_tl_shm_copy_to_children(ucc_tl_shm_seg_t * seg,
-                                               ucc_tl_shm_team_t *team,
-                                               ucc_kn_tree_t *    tree,
-                                               uint32_t seq_num, int is_inline,
-                                               void *src, size_t data_size)
+static inline void
+ucc_tl_shm_copy_to_children(ucc_tl_shm_seg_t *seg, ucc_tl_shm_team_t *team,
+                            ucc_kn_tree_t *tree, ucc_tl_shm_sn_t seq_num,
+                            int is_inline, void *src, size_t data_size)
 {
     ucc_tl_shm_ctrl_t *ctrl;
     void *             dst;
@@ -192,7 +193,7 @@ static inline void ucc_tl_shm_copy_to_children(ucc_tl_shm_seg_t * seg,
 
 static inline void ucc_tl_shm_signal_to_children(ucc_tl_shm_seg_t * seg,
                                                  ucc_tl_shm_team_t *team,
-                                                 uint32_t           seq_num,
+                                                 ucc_tl_shm_sn_t    seq_num,
                                                  ucc_kn_tree_t *    tree)
 {
     ucc_tl_shm_ctrl_t *ctrl;
