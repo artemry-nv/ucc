@@ -57,7 +57,7 @@
           error-status:   "Test FAILed."
           status-add-test-results: true
           # swx-jenkins2 from GitHub Pull Request Builder
-          auth-id: 'cb48aefb-4f90-4d52-a9bc-63d92382e0be'
+          auth-id: '03d94be8-5b51-4591-845e-06811da33308'
           org-list: ["Mellanox","openucx"]
           white-list: ["swx-jenkins","swx-jenkins2","swx-jenkins3","mellanox-github"]
           allow-whitelist-orgs-as-admins: true
@@ -65,7 +65,7 @@
       scm:
         - git:
             url: "{jjb_git}"
-            credentials-id: '549927eb-7f38-4a8f-997a-81dd63605782'
+            credentials-id: 'c663a06a-8d46-410c-92b3-be80b6891532'
             branches: [ '$sha1' ]
             shallow-clone: true
             depth: 10
