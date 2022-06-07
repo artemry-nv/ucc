@@ -6,13 +6,13 @@
 
 #include "../tl_shm_coll_perf_params.h"
 
-static void ucc_tl_shm_pp_intel_broadwell_2_14_bcast(ucc_tl_shm_perf_params_t *params,
-                                                     ucc_tl_shm_task_t *task)
+static void
+ucc_tl_shm_pp_intel_broadwell_2_14_bcast(ucc_tl_shm_perf_params_t *params,
+                                         ucc_tl_shm_task_t        *task)
 {
     ucc_tl_shm_team_t *team      = TASK_TEAM(task);
     size_t             data_size = ucc_coll_args_msgsize(&task->super.bargs);
-    ucc_tl_shm_pp_bcast_t *p     = ucc_derived_of(params,
-                                                  ucc_tl_shm_pp_bcast_t);
+    ucc_tl_shm_pp_bcast_t *p = ucc_derived_of(params, ucc_tl_shm_pp_bcast_t);
 
     if (data_size <= team->max_inline) {
         p->progress_alg         = BCAST_WR;
@@ -27,13 +27,13 @@ static void ucc_tl_shm_pp_intel_broadwell_2_14_bcast(ucc_tl_shm_perf_params_t *p
     }
 }
 
-static void ucc_tl_shm_pp_intel_broadwell_1_14_bcast(ucc_tl_shm_perf_params_t *params,
-                                                     ucc_tl_shm_task_t *task)
+static void
+ucc_tl_shm_pp_intel_broadwell_1_14_bcast(ucc_tl_shm_perf_params_t *params,
+                                         ucc_tl_shm_task_t        *task)
 {
     ucc_tl_shm_team_t *team      = TASK_TEAM(task);
     size_t             data_size = ucc_coll_args_msgsize(&task->super.bargs);
-    ucc_tl_shm_pp_bcast_t *p     = ucc_derived_of(params,
-                                                  ucc_tl_shm_pp_bcast_t);
+    ucc_tl_shm_pp_bcast_t *p = ucc_derived_of(params, ucc_tl_shm_pp_bcast_t);
 
     if (data_size <= team->max_inline) {
         p->progress_alg         = BCAST_WR;
@@ -48,13 +48,13 @@ static void ucc_tl_shm_pp_intel_broadwell_1_14_bcast(ucc_tl_shm_perf_params_t *p
     }
 }
 
-static void ucc_tl_shm_pp_intel_broadwell_1_8_bcast(ucc_tl_shm_perf_params_t *params,
-                                                    ucc_tl_shm_task_t *task)
+static void
+ucc_tl_shm_pp_intel_broadwell_1_8_bcast(ucc_tl_shm_perf_params_t *params,
+                                        ucc_tl_shm_task_t        *task)
 {
     ucc_tl_shm_team_t *team      = TASK_TEAM(task);
     size_t             data_size = ucc_coll_args_msgsize(&task->super.bargs);
-    ucc_tl_shm_pp_bcast_t *p     = ucc_derived_of(params,
-                                                  ucc_tl_shm_pp_bcast_t);
+    ucc_tl_shm_pp_bcast_t *p = ucc_derived_of(params, ucc_tl_shm_pp_bcast_t);
 
     if (data_size <= team->max_inline) {
         p->progress_alg         = BCAST_WW;
@@ -69,14 +69,13 @@ static void ucc_tl_shm_pp_intel_broadwell_1_8_bcast(ucc_tl_shm_perf_params_t *pa
     }
 }
 
-static void ucc_tl_shm_pp_intel_broadwell_2_14_reduce(
-    ucc_tl_shm_perf_params_t *params,
-    ucc_tl_shm_task_t *task)
+static void
+ucc_tl_shm_pp_intel_broadwell_2_14_reduce(ucc_tl_shm_perf_params_t *params,
+                                          ucc_tl_shm_task_t        *task)
 {
     ucc_tl_shm_team_t *team      = TASK_TEAM(task);
     size_t             data_size = ucc_coll_args_msgsize(&task->super.bargs);
-    ucc_tl_shm_pp_reduce_t *p    = ucc_derived_of(params,
-                                                  ucc_tl_shm_pp_reduce_t);
+    ucc_tl_shm_pp_reduce_t *p = ucc_derived_of(params, ucc_tl_shm_pp_reduce_t);
 
     if (data_size <= team->max_inline) {
         p->super.base_tree_only = 0;
@@ -89,14 +88,13 @@ static void ucc_tl_shm_pp_intel_broadwell_2_14_reduce(
     }
 }
 
-static void ucc_tl_shm_pp_intel_broadwell_1_14_reduce(
-    ucc_tl_shm_perf_params_t *params,
-    ucc_tl_shm_task_t *task)
+static void
+ucc_tl_shm_pp_intel_broadwell_1_14_reduce(ucc_tl_shm_perf_params_t *params,
+                                          ucc_tl_shm_task_t        *task)
 {
     ucc_tl_shm_team_t *team      = TASK_TEAM(task);
     size_t             data_size = ucc_coll_args_msgsize(&task->super.bargs);
-    ucc_tl_shm_pp_reduce_t *p    = ucc_derived_of(params,
-                                                  ucc_tl_shm_pp_reduce_t);
+    ucc_tl_shm_pp_reduce_t *p = ucc_derived_of(params, ucc_tl_shm_pp_reduce_t);
 
     if (data_size <= team->max_inline) {
         p->super.base_tree_only = 1;
@@ -109,13 +107,13 @@ static void ucc_tl_shm_pp_intel_broadwell_1_14_reduce(
     }
 }
 
-static void ucc_tl_shm_pp_intel_broadwell_1_8_reduce(ucc_tl_shm_perf_params_t *params,
-                                                     ucc_tl_shm_task_t *task)
+static void
+ucc_tl_shm_pp_intel_broadwell_1_8_reduce(ucc_tl_shm_perf_params_t *params,
+                                         ucc_tl_shm_task_t        *task)
 {
     ucc_tl_shm_team_t *team      = TASK_TEAM(task);
     size_t             data_size = ucc_coll_args_msgsize(&task->super.bargs);
-    ucc_tl_shm_pp_reduce_t *p    = ucc_derived_of(params,
-                                                  ucc_tl_shm_pp_reduce_t);
+    ucc_tl_shm_pp_reduce_t *p = ucc_derived_of(params, ucc_tl_shm_pp_reduce_t);
 
     if (data_size <= team->max_inline) {
         p->super.base_tree_only = 1;

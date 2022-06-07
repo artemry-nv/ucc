@@ -15,10 +15,9 @@ extern ucc_tl_shm_perf_key_t amd_rome_2_64;
 
 static inline void
 ucc_tl_shm_perf_params_generic_bcast(ucc_tl_shm_perf_params_t *params,
-                                     ucc_tl_shm_task_t *task)
+                                     ucc_tl_shm_task_t        *task)
 {
-    ucc_tl_shm_pp_bcast_t *p = ucc_derived_of(params,
-                                              ucc_tl_shm_pp_bcast_t);
+    ucc_tl_shm_pp_bcast_t *p = ucc_derived_of(params, ucc_tl_shm_pp_bcast_t);
 
     p->progress_alg         = TASK_LIB(task)->cfg.bcast_alg;
     p->super.base_tree_only = TASK_LIB(task)->cfg.base_tree_only;
@@ -28,10 +27,9 @@ ucc_tl_shm_perf_params_generic_bcast(ucc_tl_shm_perf_params_t *params,
 
 static inline void
 ucc_tl_shm_perf_params_generic_reduce(ucc_tl_shm_perf_params_t *params,
-                                      ucc_tl_shm_task_t *task)
+                                      ucc_tl_shm_task_t        *task)
 {
-    ucc_tl_shm_pp_reduce_t *p = ucc_derived_of(params,
-                                               ucc_tl_shm_pp_reduce_t);
+    ucc_tl_shm_pp_reduce_t *p = ucc_derived_of(params, ucc_tl_shm_pp_reduce_t);
 
     p->super.base_tree_only = TASK_LIB(task)->cfg.base_tree_only;
     p->super.base_radix     = TASK_LIB(task)->cfg.reduce_base_radix;

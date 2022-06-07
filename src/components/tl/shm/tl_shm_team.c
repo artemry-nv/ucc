@@ -98,19 +98,17 @@ static int _compare(const void *a, const void *b)
     return *((ucc_rank_t *)a) < *((ucc_rank_t *)b) ? -1 : 1;
 }
 
-static inline int check_groups_key(ucc_tl_shm_team_t *team,
+static inline int check_groups_key(ucc_tl_shm_team_t     *team,
                                    ucc_tl_shm_perf_key_t *key)
 {
     ucc_rank_t groups[team->n_base_groups];
-    int i;
-
+    int        i;
 
     if (team->n_base_groups == key->n_groups) {
         for (i = 0; i < team->n_base_groups; i++) {
             groups[i] = team->base_groups[i].group_size;
         }
-        qsort(groups, team->n_base_groups,
-              sizeof(ucc_rank_t), _compare);
+        qsort(groups, team->n_base_groups, sizeof(ucc_rank_t), _compare);
         for (i = 0; i < team->n_base_groups; i++) {
             if (groups[i] != key->groups[i]) {
                 return 0;
@@ -124,7 +122,7 @@ static inline int check_groups_key(ucc_tl_shm_team_t *team,
 static inline void ucc_tl_shm_set_perf_funcs(ucc_tl_shm_team_t *team)
 {
 
-    ucc_tl_shm_perf_key_t** key = ucc_tl_shm_perf_params;
+    ucc_tl_shm_perf_key_t **key = ucc_tl_shm_perf_params;
     ucc_cpu_vendor_t        vendor;
     ucc_cpu_model_t         model;
 
@@ -132,8 +130,7 @@ static inline void ucc_tl_shm_set_perf_funcs(ucc_tl_shm_team_t *team)
     model  = ucc_arch_get_cpu_model();
 
     while (*key) {
-        if ((*key)->cpu_vendor == vendor &&
-            (*key)->cpu_model == model &&
+        if ((*key)->cpu_vendor == vendor && (*key)->cpu_model == model &&
             check_groups_key(team, *key)) {
             team->perf_params_bcast  = (*key)->bcast_func;
             team->perf_params_reduce = (*key)->reduce_func;

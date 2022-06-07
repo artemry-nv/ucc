@@ -176,10 +176,10 @@ typedef struct ucc_tl_shm_pp_reduce {
 
 typedef struct ucc_tl_shm_task ucc_tl_shm_task_t;
 typedef void (*perf_params_fn_t)(ucc_tl_shm_perf_params_t *params,
-                                 ucc_tl_shm_task_t *task);
+                                 ucc_tl_shm_task_t        *task);
 
 #define UCC_TL_SHM_MAX_BASE_GROUPS 32
-#define UCC_TL_SHM_N_PERF_PARAMS 6
+#define UCC_TL_SHM_N_PERF_PARAMS   6
 
 typedef struct ucc_tl_shm_perf_key {
     ucc_cpu_vendor_t        cpu_vendor;
@@ -192,7 +192,7 @@ typedef struct ucc_tl_shm_perf_key {
     const char *            label;
 } ucc_tl_shm_perf_key_t;
 
-extern ucc_tl_shm_perf_key_t* ucc_tl_shm_perf_params[UCC_TL_SHM_N_PERF_PARAMS];
+extern ucc_tl_shm_perf_key_t *ucc_tl_shm_perf_params[UCC_TL_SHM_N_PERF_PARAMS];
 
 typedef struct ucc_tl_shm_team {
     ucc_tl_team_t            super;
