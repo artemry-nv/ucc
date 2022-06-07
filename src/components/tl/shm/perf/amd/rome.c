@@ -6,7 +6,7 @@
 
 #include "../tl_shm_coll_perf_params.h"
 
-void ucc_tl_shm_perf_params_amd_rome_128_bcast(ucc_tl_shm_perf_params_t *params,
+static void ucc_tl_shm_pp_amd_rome_2_64_bcast(ucc_tl_shm_perf_params_t *params,
                                                ucc_tl_shm_task_t *task)
 {
     ucc_tl_shm_team_t *team      = TASK_TEAM(task);
@@ -27,7 +27,7 @@ void ucc_tl_shm_perf_params_amd_rome_128_bcast(ucc_tl_shm_perf_params_t *params,
     }
 }
 
-void ucc_tl_shm_perf_params_amd_rome_128_reduce(ucc_tl_shm_perf_params_t *params,
+static void ucc_tl_shm_pp_amd_rome_2_64_reduce(ucc_tl_shm_perf_params_t *params,
                                                 ucc_tl_shm_task_t *task)
 {
     ucc_tl_shm_team_t *team      = TASK_TEAM(task);
@@ -45,3 +45,9 @@ void ucc_tl_shm_perf_params_amd_rome_128_reduce(ucc_tl_shm_perf_params_t *params
         p->super.top_radix      = TASK_LIB(task)->cfg.reduce_top_radix;
     }
 }
+
+ucc_tl_shm_perf_key_t amd_rome_2_64 =
+    TL_SHM_PERF_KEY_DECLARE(AMD, ROME, "amd_rome_2_64",
+                            ucc_tl_shm_pp_amd_rome_2_64_bcast,
+                            ucc_tl_shm_pp_amd_rome_2_64_reduce,
+                            SEG_LAYOUT_SOCKET, 2, 64, 64);

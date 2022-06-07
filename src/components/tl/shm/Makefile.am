@@ -5,7 +5,7 @@
 bcast   =                          \
 	bcast/bcast.h                  \
 	bcast/bcast.c
-	
+
 reduce  =                          \
 	reduce/reduce.h                \
 	reduce/reduce.c
@@ -17,13 +17,14 @@ fanin   =                          \
 fanout  =                          \
 	fanout/fanout.h                \
 	fanout/fanout.c
-	
+
 barrier =                          \
 	barrier/barrier.h              \
 	barrier/barrier.c
 
 perf    =                          \
 	perf/tl_shm_coll_perf_params.h \
+	perf/tl_shm_coll_perf_params.c \
 	perf/intel/broadwell.c         \
 	perf/intel/skylake.c           \
 	perf/amd/rome.c

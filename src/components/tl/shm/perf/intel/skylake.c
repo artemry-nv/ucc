@@ -6,7 +6,7 @@
 
 #include "../tl_shm_coll_perf_params.h"
 
-void ucc_tl_shm_perf_params_intel_skylake_40_bcast(ucc_tl_shm_perf_params_t *params,
+static void ucc_tl_shm_pp_intel_skylake_2_20_bcast(ucc_tl_shm_perf_params_t *params,
                                                    ucc_tl_shm_task_t *task)
 {
     ucc_tl_shm_team_t *team      = TASK_TEAM(task);
@@ -27,7 +27,7 @@ void ucc_tl_shm_perf_params_intel_skylake_40_bcast(ucc_tl_shm_perf_params_t *par
     }
 }
 
-void ucc_tl_shm_perf_params_intel_skylake_40_reduce(ucc_tl_shm_perf_params_t *params,
+static void ucc_tl_shm_pp_intel_skylake_2_20_reduce(ucc_tl_shm_perf_params_t *params,
                                                     ucc_tl_shm_task_t *task)
 {
     ucc_tl_shm_team_t *team      = TASK_TEAM(task);
@@ -45,3 +45,9 @@ void ucc_tl_shm_perf_params_intel_skylake_40_reduce(ucc_tl_shm_perf_params_t *pa
         p->super.top_radix      = TASK_LIB(task)->cfg.reduce_top_radix;
     }
 }
+
+ucc_tl_shm_perf_key_t intel_skylake_2_20 =
+    TL_SHM_PERF_KEY_DECLARE(INTEL, SKYLAKE, "intel_skylake_2_20",
+                            ucc_tl_shm_pp_intel_skylake_2_20_bcast,
+                            ucc_tl_shm_pp_intel_skylake_2_20_reduce,
+                            SEG_LAYOUT_SOCKET, 2, 20, 20);

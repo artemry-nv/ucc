@@ -6,7 +6,7 @@
 
 #include "../tl_shm_coll_perf_params.h"
 
-void ucc_tl_shm_perf_params_intel_broadwell_28_bcast(ucc_tl_shm_perf_params_t *params,
+static void ucc_tl_shm_pp_intel_broadwell_2_14_bcast(ucc_tl_shm_perf_params_t *params,
                                                      ucc_tl_shm_task_t *task)
 {
     ucc_tl_shm_team_t *team      = TASK_TEAM(task);
@@ -27,7 +27,7 @@ void ucc_tl_shm_perf_params_intel_broadwell_28_bcast(ucc_tl_shm_perf_params_t *p
     }
 }
 
-void ucc_tl_shm_perf_params_intel_broadwell_14_bcast(ucc_tl_shm_perf_params_t *params,
+static void ucc_tl_shm_pp_intel_broadwell_1_14_bcast(ucc_tl_shm_perf_params_t *params,
                                                      ucc_tl_shm_task_t *task)
 {
     ucc_tl_shm_team_t *team      = TASK_TEAM(task);
@@ -48,7 +48,7 @@ void ucc_tl_shm_perf_params_intel_broadwell_14_bcast(ucc_tl_shm_perf_params_t *p
     }
 }
 
-void ucc_tl_shm_perf_params_intel_broadwell_8_bcast(ucc_tl_shm_perf_params_t *params,
+static void ucc_tl_shm_pp_intel_broadwell_1_8_bcast(ucc_tl_shm_perf_params_t *params,
                                                     ucc_tl_shm_task_t *task)
 {
     ucc_tl_shm_team_t *team      = TASK_TEAM(task);
@@ -69,7 +69,7 @@ void ucc_tl_shm_perf_params_intel_broadwell_8_bcast(ucc_tl_shm_perf_params_t *pa
     }
 }
 
-void ucc_tl_shm_perf_params_intel_broadwell_28_reduce(
+static void ucc_tl_shm_pp_intel_broadwell_2_14_reduce(
     ucc_tl_shm_perf_params_t *params,
     ucc_tl_shm_task_t *task)
 {
@@ -89,7 +89,7 @@ void ucc_tl_shm_perf_params_intel_broadwell_28_reduce(
     }
 }
 
-void ucc_tl_shm_perf_params_intel_broadwell_14_reduce(
+static void ucc_tl_shm_pp_intel_broadwell_1_14_reduce(
     ucc_tl_shm_perf_params_t *params,
     ucc_tl_shm_task_t *task)
 {
@@ -109,7 +109,7 @@ void ucc_tl_shm_perf_params_intel_broadwell_14_reduce(
     }
 }
 
-void ucc_tl_shm_perf_params_intel_broadwell_8_reduce(ucc_tl_shm_perf_params_t *params,
+static void ucc_tl_shm_pp_intel_broadwell_1_8_reduce(ucc_tl_shm_perf_params_t *params,
                                                      ucc_tl_shm_task_t *task)
 {
     ucc_tl_shm_team_t *team      = TASK_TEAM(task);
@@ -127,3 +127,21 @@ void ucc_tl_shm_perf_params_intel_broadwell_8_reduce(ucc_tl_shm_perf_params_t *p
         p->super.top_radix      = 0;
     }
 }
+
+ucc_tl_shm_perf_key_t intel_broadwell_2_14 =
+    TL_SHM_PERF_KEY_DECLARE(INTEL, BROADWELL, "intel_broadwell_2_14",
+                            ucc_tl_shm_pp_intel_broadwell_2_14_bcast,
+                            ucc_tl_shm_pp_intel_broadwell_2_14_reduce,
+                            SEG_LAYOUT_CONTIG, 2, 14, 14);
+
+ucc_tl_shm_perf_key_t intel_broadwell_1_14 =
+    TL_SHM_PERF_KEY_DECLARE(INTEL, BROADWELL, "intel_broadwell_1_14",
+                            ucc_tl_shm_pp_intel_broadwell_1_14_bcast,
+                            ucc_tl_shm_pp_intel_broadwell_1_14_reduce,
+                            SEG_LAYOUT_LAST, 1, 14);
+
+ucc_tl_shm_perf_key_t intel_broadwell_1_8 =
+    TL_SHM_PERF_KEY_DECLARE(INTEL, BROADWELL, "intel_broadwell_1_8",
+                            ucc_tl_shm_pp_intel_broadwell_1_8_bcast,
+                            ucc_tl_shm_pp_intel_broadwell_1_8_reduce,
+                            SEG_LAYOUT_LAST, 1, 8);

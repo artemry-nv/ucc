@@ -99,7 +99,7 @@ static int _compare(const void *a, const void *b)
 }
 
 static inline int check_groups_key(ucc_tl_shm_team_t *team,
-                                   ucc_tl_shm_perf_keys_t *key)
+                                   ucc_tl_shm_perf_key_t *key)
 {
     ucc_rank_t groups[team->n_base_groups];
     int i;
@@ -121,56 +121,33 @@ static inline int check_groups_key(ucc_tl_shm_team_t *team,
     return 0;
 }
 
-static inline ucc_status_t ucc_tl_shm_set_perf_funcs(ucc_tl_shm_team_t *team)
+static inline void ucc_tl_shm_set_perf_funcs(ucc_tl_shm_team_t *team)
 {
-    int        i         = 0,
-        max_size =
-            20; // max size is general estimate,can be changed as more archs are added for perf selection
-    ucc_tl_shm_perf_keys_t * perf_funcs_keys;
-    ucc_tl_shm_perf_funcs_t *perf_funcs_list;
-    ucc_cpu_vendor_t         vendor;
-    ucc_cpu_model_t          model;
 
-    perf_funcs_keys =
-        ucc_malloc(max_size * sizeof(ucc_tl_shm_perf_keys_t), "perf keys");
+    ucc_tl_shm_perf_key_t** key = ucc_tl_shm_perf_params;
+    ucc_cpu_vendor_t        vendor;
+    ucc_cpu_model_t         model;
 
-    if (!perf_funcs_keys) {
-        tl_error(team->super.super.context->lib,
-                 "failed to allocate %zd bytes for perf_funcs_keys",
-                 max_size * sizeof(ucc_tl_shm_perf_keys_t));
-        return UCC_ERR_NO_MEMORY;
-    }
-
-    perf_funcs_list = (ucc_tl_shm_perf_funcs_t *)ucc_malloc(
-        sizeof(ucc_tl_shm_perf_funcs_t), "perf funcs");
-
-    if (!perf_funcs_list) {
-        tl_error(team->super.super.context->lib,
-
-                 "failed to allocate %zd bytes for perf_funcs_list",
-                 max_size * sizeof(ucc_tl_shm_perf_funcs_t));
-        ucc_free(perf_funcs_keys);
-        return UCC_ERR_NO_MEMORY;
-    }
-
-    ucc_tl_shm_create_perf_func_list(team, perf_funcs_keys, perf_funcs_list);
     vendor = ucc_arch_get_cpu_vendor();
     model  = ucc_arch_get_cpu_model();
 
-    for (i = 0; i < perf_funcs_list->size; i++) {
-        if (perf_funcs_list->keys[i].cpu_vendor == vendor &&
-            perf_funcs_list->keys[i].cpu_model == model &&
-            check_groups_key(team, &perf_funcs_list->keys[i])) {
-            team->perf_params_bcast  = perf_funcs_list->keys[i].bcast_func;
-            team->perf_params_reduce = perf_funcs_list->keys[i].reduce_func;
-            team->layout             = perf_funcs_list->keys[i].layout;
-            break;
+    while (*key) {
+        if ((*key)->cpu_vendor == vendor &&
+            (*key)->cpu_model == model &&
+            check_groups_key(team, *key)) {
+            team->perf_params_bcast  = (*key)->bcast_func;
+            team->perf_params_reduce = (*key)->reduce_func;
+            team->layout             = (*key)->layout;
+            if (team->layout == SEG_LAYOUT_LAST) {
+                team->layout = UCC_TL_SHM_TEAM_LIB(team)->cfg.layout;
+            }
+            tl_debug(UCC_TL_TEAM_LIB(team), "using perf params: %s",
+                     (*key)->label);
+            return;
         }
+        key++;
     }
-
-    ucc_free(perf_funcs_keys);
-    ucc_free(perf_funcs_list);
-    return UCC_OK;
+    tl_debug(UCC_TL_TEAM_LIB(team), "using perf params: generic");
 }
 
 static void ucc_tl_shm_init_segs(ucc_tl_shm_team_t *team)
@@ -470,10 +447,7 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
         ucc_ep_map_eval(self->rank_group_id_map, UCC_TL_TEAM_RANK(self));
 
     if (UCC_TL_SHM_TEAM_LIB(self)->cfg.set_perf_params) {
-        status = ucc_tl_shm_set_perf_funcs(self);
-        if (UCC_OK != status) {
-            goto err_segs;
-        }
+        ucc_tl_shm_set_perf_funcs(self);
     }
 
     self->ctrl_size  = 0;
