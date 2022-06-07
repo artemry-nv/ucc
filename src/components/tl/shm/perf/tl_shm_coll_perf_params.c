@@ -14,6 +14,6 @@ ucc_tl_shm_perf_key_t* ucc_tl_shm_perf_params[UCC_TL_SHM_N_PERF_PARAMS] =
     &intel_skylake_2_20,
     &intel_skylake_2_28,
     &amd_rome_2_64,
-    &amd_rome_4_32,
+    &amd_rome_8_16,
     NULL
 };

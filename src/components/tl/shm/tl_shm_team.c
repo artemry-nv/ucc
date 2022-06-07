@@ -138,13 +138,17 @@ static inline void ucc_tl_shm_set_perf_funcs(ucc_tl_shm_team_t *team)
             if (team->layout == SEG_LAYOUT_LAST) {
                 team->layout = UCC_TL_SHM_TEAM_LIB(team)->cfg.layout;
             }
-            tl_debug(UCC_TL_TEAM_LIB(team), "using perf params: %s",
-                     (*key)->label);
+            if (0 == UCC_TL_TEAM_RANK(team)) {
+                tl_debug(UCC_TL_TEAM_LIB(team), "using perf params: %s",
+                         (*key)->label);
+            }
             return;
         }
         key++;
     }
-    tl_debug(UCC_TL_TEAM_LIB(team), "using perf params: generic");
+    if (0 == UCC_TL_TEAM_RANK(team)) {
+        tl_debug(UCC_TL_TEAM_LIB(team), "using perf params: generic");
+    }
 }
 
 static void ucc_tl_shm_init_segs(ucc_tl_shm_team_t *team)
