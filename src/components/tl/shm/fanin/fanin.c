@@ -77,6 +77,7 @@ ucc_status_t ucc_tl_shm_fanin_init(ucc_base_coll_args_t *coll_args,
     ucc_tl_shm_team_t *team = ucc_derived_of(tl_team, ucc_tl_shm_team_t);
     ucc_rank_t base_radix   = UCC_TL_SHM_TEAM_LIB(team)->cfg.fanin_base_radix;
     ucc_rank_t top_radix    = UCC_TL_SHM_TEAM_LIB(team)->cfg.fanin_top_radix;
+    int        bto          = UCC_TL_SHM_TEAM_LIB(team)->cfg.base_tree_only;
     ucc_tl_shm_task_t *task;
     ucc_status_t       status;
 
@@ -95,7 +96,7 @@ ucc_status_t ucc_tl_shm_fanin_init(ucc_base_coll_args_t *coll_args,
 
     status = ucc_tl_shm_tree_init(
         team, coll_args->args.root, base_radix, top_radix, &task->tree_in_cache,
-        UCC_COLL_TYPE_FANIN, task->base_tree_only, &task->tree);
+        UCC_COLL_TYPE_FANIN, bto, &task->tree);
 
     if (ucc_unlikely(UCC_OK != status)) {
         tl_error(UCC_TL_TEAM_LIB(team), "failed to init shm tree");
