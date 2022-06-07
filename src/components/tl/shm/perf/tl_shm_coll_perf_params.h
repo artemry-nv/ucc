@@ -12,6 +12,9 @@ extern ucc_tl_shm_perf_key_t intel_broadwell_1_14;
 extern ucc_tl_shm_perf_key_t intel_broadwell_1_8;
 extern ucc_tl_shm_perf_key_t intel_skylake_2_20;
 extern ucc_tl_shm_perf_key_t amd_rome_2_64;
+extern ucc_tl_shm_perf_key_t amd_rome_4_32;
+extern ucc_tl_shm_perf_key_t intel_broadwell_2_16;
+extern ucc_tl_shm_perf_key_t intel_skylake_2_28;
 
 static inline void
 ucc_tl_shm_perf_params_generic_bcast(ucc_tl_shm_perf_params_t *params,
