@@ -3,7 +3,7 @@
     project-type: pipeline
     properties:
       - github:
-          url: "{jjb_git}"
+          url: "https://github.com/Mellanox-lab/ucc_private/"
       - build-discarder:
           days-to-keep: 30
           num-to-keep: 20
@@ -49,16 +49,16 @@
           error-status:   "Test FAILed."
           status-add-test-results: true
           # swx-jenkins5 from GitHub Pull Request Builder
-          auth-id: 'a152b63b-62f6-4b73-8d69-35e5c2762513'
+          auth-id: '03d94be8-5b51-4591-845e-06811da33308'
           org-list: ["Mellanox","openucx","Mellanox-lab"]
-          white-list: ["swx-jenkins","swx-jenkins5","swx-jenkins3","mellanox-github"]
+          white-list: ["swx-jenkins","swx-jenkins4","swx-jenkins5","swx-jenkins3","mellanox-github"]
           allow-whitelist-orgs-as-admins: true
           cancel-builds-on-update: true
     pipeline-scm:
       scm:
         - git:
             url: "{jjb_git}"
-            credentials-id: 'a152b63b-62f6-4b73-8d69-35e5c2762513'
+            credentials-id: 'c663a06a-8d46-410c-92b3-be80b6891532'
             branches: [ '$sha1' ]
             shallow-clone: true
             depth: 10
