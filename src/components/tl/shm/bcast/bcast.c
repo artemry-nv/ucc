@@ -272,6 +272,10 @@ ucc_status_t ucc_tl_shm_bcast_init(ucc_base_coll_args_t *coll_args,
         return UCC_ERR_NOT_SUPPORTED;
     }
 
+    if (UCC_COLL_ARGS_ACTIVE_SET(&coll_args->args)) {
+        return UCC_ERR_NOT_SUPPORTED;
+    }
+
     task = ucc_tl_shm_get_task(coll_args, team);
     if (ucc_unlikely(!task)) {
         return UCC_ERR_NO_MEMORY;
