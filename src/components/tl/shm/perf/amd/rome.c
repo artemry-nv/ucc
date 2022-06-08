@@ -6,38 +6,38 @@
 
 #include "../tl_shm_coll_perf_params.h"
 
-void ucc_tl_shm_perf_params_amd_rome_128_bcast(ucc_coll_task_t *coll_task)
-{
-    ucc_tl_shm_task_t *task = ucc_derived_of(coll_task, ucc_tl_shm_task_t);
-    ucc_tl_shm_team_t *team = TASK_TEAM(task);
-    size_t             data_size = ucc_coll_args_msgsize(&task->super.bargs);
+TL_SHM_PERF_KEY_DECLARE(amd_rome_2_64, AMD, ROME,
+                        BCAST_WW, 0, 4, 2, BCAST_WR, 0, 16, 2,
+                        0, 2, 2, 0, 2, 2,
+                        SEG_LAYOUT_SOCKET, 2, 64, 64);
 
-        if (data_size <= team->max_inline) {
-            task->progress_alg   = BCAST_WW;
-            task->base_tree_only = 1;
-            task->base_radix     = 4;
-            task->top_radix      = 0;
-        } else {
-            task->progress_alg   = BCAST_WR;
-            task->base_tree_only = 0;
-            task->base_radix     = 16;
-            task->top_radix      = TASK_LIB(task)->cfg.bcast_top_radix;
-        }
+static void ucc_tl_shm_amd_rome_8_16_bcast(ucc_tl_shm_perf_params_t *params,
+                                           ucc_tl_shm_task_t        *task)
+{
+    ucc_tl_shm_team_t *team      = TASK_TEAM(task);
+    size_t             data_size = ucc_coll_args_msgsize(&task->super.bargs);
+    ucc_tl_shm_pp_bcast_t *p = ucc_derived_of(params, ucc_tl_shm_pp_bcast_t);
+
+    p->super.base_tree_only = 0;
+    if (data_size <= team->max_inline) {
+        p->progress_alg         = BCAST_WW;
+        p->super.base_radix     = 2;
+        p->super.top_radix      = 4;
+    } else if (data_size <= 4096) {
+        p->progress_alg         = BCAST_WR;
+        p->super.top_radix      = 2;
+        p->super.base_radix     = (data_size > 2048) ? 16 : 4;
+    } else {
+        p->progress_alg         = BCAST_RR;
+        p->super.top_radix      = 8;
+        p->super.base_radix     = 4;
+    }
 }
 
-void ucc_tl_shm_perf_params_amd_rome_128_reduce(ucc_coll_task_t *coll_task)
-{
-    ucc_tl_shm_task_t *task = ucc_derived_of(coll_task, ucc_tl_shm_task_t);
-    ucc_tl_shm_team_t *team = TASK_TEAM(task);
-    size_t             data_size = ucc_coll_args_msgsize(&task->super.bargs);
+TL_SHM_PERF_KEY_DECLARE_REDUCE(amd_rome_8_16, 0, 2, 4, 0, 2, 4);
 
-        if (data_size <= team->max_inline) {
-            task->base_tree_only = 0;
-            task->base_radix     = 2;
-            task->top_radix      = TASK_LIB(task)->cfg.reduce_top_radix;
-        } else {
-            task->base_tree_only = 0;
-            task->base_radix     = 2;
-            task->top_radix      = TASK_LIB(task)->cfg.reduce_top_radix;
-        }
-}
+TL_SHM_PERF_KEY_DECLARE_BASE(amd_rome_8_16, AMD, ROME,
+                             ucc_tl_shm_amd_rome_8_16_bcast,
+                             ucc_tl_shm_amd_rome_8_16_reduce,
+                             SEG_LAYOUT_SOCKET, 8,
+                             16, 16, 16, 16, 16, 16, 16, 16);

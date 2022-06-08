@@ -159,20 +159,40 @@ typedef struct ucc_tl_shm_tree_cache {
     ucc_tl_shm_tree_cache_elems_t *elems;
 } ucc_tl_shm_tree_cache_t;
 
-typedef void (*perf_params_fn_t)(ucc_coll_task_t *);
-typedef struct ucc_tl_shm_perf_keys {
+typedef struct ucc_tl_shm_perf_params {
+    int        base_tree_only;
+    ucc_rank_t base_radix;
+    ucc_rank_t top_radix;
+} ucc_tl_shm_perf_params_t;
+
+typedef struct ucc_tl_shm_pp_bcast {
+    ucc_tl_shm_perf_params_t        super;
+    ucc_tl_shm_bcast_progress_alg_t progress_alg;
+} ucc_tl_shm_pp_bcast_t;
+
+typedef struct ucc_tl_shm_pp_reduce {
+    ucc_tl_shm_perf_params_t super;
+} ucc_tl_shm_pp_reduce_t;
+
+typedef struct ucc_tl_shm_task ucc_tl_shm_task_t;
+typedef void (*perf_params_fn_t)(ucc_tl_shm_perf_params_t *params,
+                                 ucc_tl_shm_task_t        *task);
+
+#define UCC_TL_SHM_MAX_BASE_GROUPS 32
+#define UCC_TL_SHM_N_PERF_PARAMS   9
+
+typedef struct ucc_tl_shm_perf_key {
     ucc_cpu_vendor_t        cpu_vendor;
     ucc_cpu_model_t         cpu_model;
-    ucc_rank_t              team_size;
+    ucc_rank_t              groups[UCC_TL_SHM_MAX_BASE_GROUPS];
+    ucc_rank_t              n_groups;
     perf_params_fn_t        bcast_func;
     perf_params_fn_t        reduce_func;
     ucc_tl_shm_seg_layout_t layout;
-} ucc_tl_shm_perf_keys_t;
+    const char *            label;
+} ucc_tl_shm_perf_key_t;
 
-typedef struct ucc_tl_shm_perf_funcs {
-    size_t                  size;
-    ucc_tl_shm_perf_keys_t *keys;
-} ucc_tl_shm_perf_funcs_t;
+extern ucc_tl_shm_perf_key_t *ucc_tl_shm_perf_params[UCC_TL_SHM_N_PERF_PARAMS];
 
 typedef struct ucc_tl_shm_team {
     ucc_tl_team_t            super;

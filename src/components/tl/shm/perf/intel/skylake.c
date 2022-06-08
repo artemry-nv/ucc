@@ -6,38 +6,12 @@
 
 #include "../tl_shm_coll_perf_params.h"
 
-void ucc_tl_shm_perf_params_intel_skylake_40_bcast(ucc_coll_task_t *coll_task)
-{
-    ucc_tl_shm_task_t *task = ucc_derived_of(coll_task, ucc_tl_shm_task_t);
-    ucc_tl_shm_team_t *team = TASK_TEAM(task);
-    size_t             data_size = ucc_coll_args_msgsize(&task->super.bargs);
+TL_SHM_PERF_KEY_DECLARE(intel_skylake_2_20, INTEL, SKYLAKE,
+                        BCAST_WW, 0, 2, 2, BCAST_WR, 0, 4, 2,
+                        0, 2, 2, 0, 2, 2,
+                        SEG_LAYOUT_SOCKET, 2, 20, 20);
 
-        if (data_size <= team->max_inline) {
-            task->progress_alg   = BCAST_WW;
-            task->base_tree_only = 0;
-            task->base_radix     = 4;
-            task->top_radix      = TASK_LIB(task)->cfg.bcast_top_radix;
-        } else {
-            task->progress_alg   = BCAST_WR;
-            task->base_tree_only = 0;
-            task->base_radix     = 20;
-            task->top_radix      = TASK_LIB(task)->cfg.bcast_top_radix;
-        }
-}
-
-void ucc_tl_shm_perf_params_intel_skylake_40_reduce(ucc_coll_task_t *coll_task)
-{
-    ucc_tl_shm_task_t *task = ucc_derived_of(coll_task, ucc_tl_shm_task_t);
-    ucc_tl_shm_team_t *team = TASK_TEAM(task);
-    size_t             data_size = ucc_coll_args_msgsize(&task->super.bargs);
-
-        if (data_size <= team->max_inline) {
-            task->base_tree_only = 0;
-            task->base_radix     = 2;
-            task->top_radix      = TASK_LIB(task)->cfg.reduce_top_radix;
-        } else {
-            task->base_tree_only = 0;
-            task->base_radix     = 2;
-            task->top_radix      = TASK_LIB(task)->cfg.reduce_top_radix;
-        }
-}
+TL_SHM_PERF_KEY_DECLARE(intel_skylake_2_28, INTEL, SKYLAKE,
+                        BCAST_WW, 0, 2, 2, BCAST_WR, 0, 7, 2,
+                        0, 2, 2, 0, 2, 2,
+                        SEG_LAYOUT_SOCKET, 2, 28, 28);
