@@ -20,6 +20,7 @@ enum
 ucc_status_t ucc_tl_shm_bcast_write(ucc_tl_shm_team_t *team,
                                     ucc_tl_shm_seg_t * seg,
                                     ucc_tl_shm_task_t *task,
+                                    ucc_kn_tree_t *tree, int is_inline,
                                     size_t data_size)
 {
     ucc_rank_t      team_rank = UCC_TL_TEAM_RANK(team);
@@ -179,7 +180,7 @@ static void ucc_tl_shm_bcast_progress(ucc_coll_task_t *coll_task)
     ucc_coll_args_t    args = TASK_ARGS(task);
     size_t             data_size =
         args.src.info.count * ucc_dt_size(args.src.info.datatype);
-    ucc_rank_t         root = task->root;
+    ucc_rank_t         root = (ucc_rank_t)args.root;
     ucc_rank_t         rank = UCC_TL_TEAM_RANK(team);
     ucc_tl_shm_seg_t * seg        = task->seg;
     ucc_tl_shm_tree_t *tree       = task->tree;

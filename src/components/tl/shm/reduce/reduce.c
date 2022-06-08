@@ -23,6 +23,7 @@ ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
     ucc_rank_t         team_rank = UCC_TL_TEAM_RANK(team);
     ucc_tl_shm_sn_t    seq_num   = task->seq_num;
     uint32_t           n_polls   = UCC_TL_SHM_TEAM_LIB(team)->cfg.n_polls;
+    ucc_rank_t         root      = (ucc_rank_t)args->root;
     void *             src1, *src2, *dst;
     ucc_tl_shm_ctrl_t *child_ctrl, *my_ctrl;
     ucc_rank_t         child;
@@ -53,14 +54,14 @@ ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
             if (child_ctrl->pi == seq_num) {
                 src1   = is_inline ? child_ctrl->data
                                    : ucc_tl_shm_get_data(seg, team, child);
-                dst    = (task->root == team_rank)
+                dst    = (root == team_rank)
                              ? args->dst.info.buffer
                              : (is_inline
                                     ? my_ctrl->data
                                     : ucc_tl_shm_get_data(seg, team, team_rank));
                 src2   = (task->first_reduce)
                              ? ((UCC_IS_INPLACE(*args) &&
-                                 task->root == team_rank) ?
+                                 root == team_rank) ?
                                  args->dst.info.buffer : args->src.info.buffer)
                              : dst;
                 status = ucc_dt_reduce(src1, src2, dst, count, dt, mtype, args);
@@ -82,7 +83,7 @@ ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
             return UCC_INPROGRESS;
         }
     }
-    if (task->root != team_rank && tree->parent == UCC_RANK_INVALID) {
+    if (root != team_rank && tree->parent == UCC_RANK_INVALID) {
         return UCC_OK;
     }
     my_ctrl->pi = seq_num; //signals to parent
@@ -99,7 +100,7 @@ static void ucc_tl_shm_reduce_progress(ucc_coll_task_t *coll_task)
     ucc_memory_type_t  mtype;
     ucc_datatype_t     dt;
     size_t             count, data_size;
-    ucc_rank_t         root = task->root;
+    ucc_rank_t         root = (ucc_rank_t)args.root;
     ucc_tl_shm_seg_t * seg  = task->seg;
     ucc_tl_shm_tree_t *tree = task->tree;
     int                is_inline;
