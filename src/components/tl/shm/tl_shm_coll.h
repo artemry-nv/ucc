@@ -21,16 +21,9 @@ typedef struct ucc_tl_shm_task {
     ucc_tl_shm_bcast_progress_alg_t progress_alg;
     ucc_rank_t                      data_rank;
     ucc_rank_t                      cur_child;
-    ucc_rank_t                      root;
     struct {
         ucc_tl_shm_tree_t *bcast_tree;
         ucc_tl_shm_tree_t *reduce_tree;
-        int                bcast_base_tree_only;
-        int                reduce_base_tree_only;
-        ucc_rank_t         bcast_base_radix;
-        ucc_rank_t         bcast_top_radix;
-        ucc_rank_t         reduce_base_radix;
-        ucc_rank_t         reduce_top_radix;
     } allreduce;
 } ucc_tl_shm_task_t;
 
@@ -58,7 +51,6 @@ ucc_tl_shm_get_task(ucc_base_coll_args_t *coll_args, ucc_tl_shm_team_t *team)
     task->super.triggered_post = ucc_triggered_post;
     task->first_reduce         = 1;
     task->cur_child            = 0;
-    task->root                 = coll_args->args.root;
     return task;
 }
 

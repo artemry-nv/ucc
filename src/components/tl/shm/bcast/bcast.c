@@ -163,9 +163,10 @@ ucc_status_t ucc_tl_shm_bcast_check_read_ready(ucc_tl_shm_task_t *task)
 
     if (tree->base_tree && tree->base_tree->n_children > 0 &&
         (task->progress_alg == BCAST_WR || task->progress_alg == BCAST_RR)) {
-        for (i = 0; i < tree->base_tree->n_children; i++) {
+        for (i = task->cur_child; i < tree->base_tree->n_children; i++) {
             ctrl = ucc_tl_shm_get_ctrl(seg, team, tree->base_tree->children[i]);
             if (ctrl->rr < task->seq_num) {
+                task->cur_child = i;
                 return UCC_INPROGRESS;
             }
         }
@@ -233,6 +234,7 @@ next_stage:
         }
     case BCAST_STAGE_COPY_OUT:
         ucc_tl_shm_bcast_copy_out(task);
+        task->cur_child = 0;
         task->stage = BCAST_STAGE_READ_CHECK;
     case BCAST_STAGE_READ_CHECK:
         SHMCHECK_GOTO(ucc_tl_shm_bcast_check_read_ready(task), task, out);

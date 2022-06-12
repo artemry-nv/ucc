@@ -68,7 +68,6 @@ next_stage:
             task->tree = bcast_tree;
             task->seq_num++; /* finished reduce, need seq_num to be updated for bcast */
         }
-        my_ctrl = ucc_tl_shm_get_ctrl(seg, team, rank);
         goto next_stage;
     case ALLREDUCE_STAGE_TOP_TREE_REDUCE:
         SHMCHECK_GOTO(ucc_tl_shm_reduce_read(team, seg, task, reduce_tree->top_tree,
@@ -101,10 +100,9 @@ next_stage:
             SHMCHECK_GOTO(ucc_tl_shm_bcast_read(team, seg, task, bcast_tree->base_tree,
                           is_inline, &is_op_root, data_size), task, out);
         }
-        task->stage = ALLREDUCE_STAGE_BCAST_COPY_OUT;
-        goto next_stage;
     case ALLREDUCE_STAGE_BCAST_COPY_OUT:
         ucc_tl_shm_bcast_copy_out(task);
+        task->cur_child = 0;
         task->stage = ALLREDUCE_STAGE_BCAST_READ_CHECK;
     case ALLREDUCE_STAGE_BCAST_READ_CHECK:
         SHMCHECK_GOTO(ucc_tl_shm_bcast_check_read_ready(task), task, out);
@@ -138,9 +136,11 @@ ucc_status_t ucc_tl_shm_allreduce_init(ucc_base_coll_args_t *coll_args,
                                      ucc_base_team_t *     tl_team,
                                      ucc_coll_task_t **    task_h)
 {
-    ucc_tl_shm_team_t *team = ucc_derived_of(tl_team, ucc_tl_shm_team_t);
-    ucc_tl_shm_task_t *task;
-    ucc_status_t       status;
+    ucc_tl_shm_team_t     *team = ucc_derived_of(tl_team, ucc_tl_shm_team_t);
+    ucc_tl_shm_task_t     *task;
+    ucc_status_t           status;
+    ucc_tl_shm_pp_reduce_t params_reduce;
+    ucc_tl_shm_pp_bcast_t  params_bcast;
 
     if (UCC_IS_PERSISTENT(coll_args->args) ||
         coll_args->args.op == UCC_OP_AVG) {
@@ -153,47 +153,37 @@ ucc_status_t ucc_tl_shm_allreduce_init(ucc_base_coll_args_t *coll_args,
     }
 
     TASK_ARGS(task).root = 0;
-    team->perf_params_bcast(&task->super);
-    /* values from team->perf_params_bcast(&task->super) */
-    task->allreduce.bcast_base_radix      = task->base_radix;
-    task->allreduce.bcast_top_radix       = task->top_radix;
-    task->allreduce.bcast_base_tree_only  = task->base_tree_only;
+    team->perf_params_bcast(&params_bcast.super, task);
+    task->progress_alg = params_bcast.progress_alg;
 
-    team->perf_params_reduce(&task->super);
-    /* values from team->perf_params_reduce(&task->super) */
-    task->allreduce.reduce_base_radix     = task->base_radix;
-    task->allreduce.reduce_top_radix      = task->top_radix;
-    task->allreduce.reduce_base_tree_only = task->base_tree_only;
-
-    task->super.post     = ucc_tl_shm_allreduce_start;
-    task->super.progress = ucc_tl_shm_allreduce_progress;
-    task->stage          = ALLREDUCE_STAGE_START;
-
-    status = ucc_tl_shm_tree_init(team, TASK_ARGS(task).root,
-                                  task->allreduce.bcast_base_radix,
-                                  task->allreduce.bcast_top_radix,
-                                  &task->tree_in_cache, UCC_COLL_TYPE_BCAST,
-                                  task->allreduce.bcast_base_tree_only,
-                                  &task->allreduce.bcast_tree);
+    status = ucc_tl_shm_tree_init(
+        team, TASK_ARGS(task).root, params_bcast.super.base_radix,
+        params_bcast.super.top_radix, &task->tree_in_cache,
+        UCC_COLL_TYPE_BCAST, params_bcast.super.base_tree_only,
+        &task->allreduce.bcast_tree);
 
     if (ucc_unlikely(UCC_OK != status)) {
         tl_error(UCC_TL_TEAM_LIB(team), "failed to init shm bcast tree");
         return status;
     }
 
-    status = ucc_tl_shm_tree_init(team, TASK_ARGS(task).root,
-                                  task->allreduce.reduce_base_radix,
-                                  task->allreduce.reduce_top_radix,
-                                  &task->tree_in_cache, UCC_COLL_TYPE_REDUCE,
-                                  task->allreduce.reduce_base_tree_only,
-                                  &task->allreduce.reduce_tree);
+    team->perf_params_reduce(&params_reduce.super, task);
+
+    status = ucc_tl_shm_tree_init(
+        team, TASK_ARGS(task).root, params_reduce.super.base_radix,
+        params_reduce.super.top_radix, &task->tree_in_cache,
+        UCC_COLL_TYPE_REDUCE, params_reduce.super.base_tree_only,
+        &task->allreduce.reduce_tree);
 
     if (ucc_unlikely(UCC_OK != status)) {
         tl_error(UCC_TL_TEAM_LIB(team), "failed to init shm reduce tree");
         return status;
     }
 
-    task->tree = task->allreduce.reduce_tree;
-    *task_h = &task->super;
+    task->super.post     = ucc_tl_shm_allreduce_start;
+    task->super.progress = ucc_tl_shm_allreduce_progress;
+    task->stage          = ALLREDUCE_STAGE_START;
+    task->tree           = task->allreduce.reduce_tree;
+    *task_h              = &task->super;
     return UCC_OK;
 }
