@@ -119,12 +119,10 @@ ucc_status_t ucc_tl_shm_bcast_read(ucc_tl_shm_team_t *team,
     return UCC_INPROGRESS;
 }
 
-void ucc_tl_shm_bcast_copy_out(ucc_tl_shm_task_t *task)
+void ucc_tl_shm_bcast_copy_out(ucc_tl_shm_task_t *task, size_t data_size)
 {
     ucc_tl_shm_team_t *team = TASK_TEAM(task);
     ucc_coll_args_t    args = TASK_ARGS(task);
-    size_t             data_size =
-        args.src.info.count * ucc_dt_size(args.src.info.datatype);
     ucc_rank_t         root      = (ucc_rank_t)args.root;
     ucc_rank_t         rank      = UCC_TL_TEAM_RANK(team);
     ucc_tl_shm_seg_t * seg       = task->seg;
@@ -233,7 +231,7 @@ next_stage:
                           is_inline, &is_op_root, data_size), task, out);
         }
     case BCAST_STAGE_COPY_OUT:
-        ucc_tl_shm_bcast_copy_out(task);
+        ucc_tl_shm_bcast_copy_out(task, data_size);
         task->cur_child = 0;
         task->stage = BCAST_STAGE_READ_CHECK;
     case BCAST_STAGE_READ_CHECK:

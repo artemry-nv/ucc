@@ -101,7 +101,7 @@ next_stage:
                           is_inline, &is_op_root, data_size), task, out);
         }
     case ALLREDUCE_STAGE_BCAST_COPY_OUT:
-        ucc_tl_shm_bcast_copy_out(task);
+        ucc_tl_shm_bcast_copy_out(task, data_size);
         task->cur_child = 0;
         task->stage = ALLREDUCE_STAGE_BCAST_READ_CHECK;
     case ALLREDUCE_STAGE_BCAST_READ_CHECK:
