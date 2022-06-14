@@ -14,7 +14,7 @@ enum
     REDUCE_STAGE_TOP_TREE,
 };
 
-static ucc_status_t
+ucc_status_t
 ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
                        ucc_tl_shm_task_t *task, ucc_kn_tree_t *tree,
                        int is_inline, size_t count, ucc_datatype_t dt,
@@ -23,6 +23,7 @@ ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
     ucc_rank_t         team_rank = UCC_TL_TEAM_RANK(team);
     ucc_tl_shm_sn_t    seq_num   = task->seq_num;
     uint32_t           n_polls   = UCC_TL_SHM_TEAM_LIB(team)->cfg.n_polls;
+    ucc_rank_t         root      = (ucc_rank_t)args->root;
     void *             src1, *src2, *dst;
     ucc_tl_shm_ctrl_t *child_ctrl, *my_ctrl;
     ucc_rank_t         child;
@@ -33,7 +34,6 @@ ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
 
     if (tree->n_children == 0) {
         /* I am leaf so I dont need to read, only notify parent*/
-
         if (tree == task->tree->base_tree || task->tree->base_tree == NULL) {
             /* I am leaf in base tree so need to copy from user buffer into my shm */
             dst = is_inline ? my_ctrl->data
@@ -53,14 +53,14 @@ ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
             if (child_ctrl->pi == seq_num) {
                 src1   = is_inline ? child_ctrl->data
                                    : ucc_tl_shm_get_data(seg, team, child);
-                dst    = (args->root == team_rank)
+                dst    = (root == team_rank)
                              ? args->dst.info.buffer
                              : (is_inline
                                     ? my_ctrl->data
                                     : ucc_tl_shm_get_data(seg, team, team_rank));
                 src2   = (task->first_reduce)
                              ? ((UCC_IS_INPLACE(*args) &&
-                                 args->root == team_rank) ?
+                                 root == team_rank) ?
                                  args->dst.info.buffer : args->src.info.buffer)
                              : dst;
                 status = ucc_dt_reduce(src1, src2, dst, count, dt, mtype, args);
@@ -82,7 +82,9 @@ ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
             return UCC_INPROGRESS;
         }
     }
-    my_ctrl->pi = seq_num; //signals to parent
+    if (tree->parent != UCC_RANK_INVALID) {
+        my_ctrl->pi = seq_num; //signals to parent
+    }
     return UCC_OK;
 }
 

@@ -11,6 +11,7 @@
 #include "barrier/barrier.h"
 #include "fanin/fanin.h"
 #include "fanout/fanout.h"
+#include "allreduce/allreduce.h"
 
 ucc_status_t ucc_tl_shm_get_lib_attr(const ucc_base_lib_t *lib,
                                      ucc_base_lib_attr_t * base_attr);
@@ -176,6 +177,9 @@ ucc_status_t ucc_tl_shm_coll_init(ucc_base_coll_args_t *coll_args,
         break;
     case UCC_COLL_TYPE_BARRIER:
         status = ucc_tl_shm_barrier_init(coll_args, team, task);
+        break;
+    case UCC_COLL_TYPE_ALLREDUCE:
+        status = ucc_tl_shm_allreduce_init(coll_args, team, task);
         break;
     default:
         status = UCC_ERR_NOT_SUPPORTED;

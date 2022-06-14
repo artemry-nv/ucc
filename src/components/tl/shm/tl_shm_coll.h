@@ -21,6 +21,11 @@ typedef struct ucc_tl_shm_task {
     ucc_tl_shm_bcast_progress_alg_t progress_alg;
     ucc_rank_t                      data_rank;
     ucc_rank_t                      cur_child;
+    void *                          src_buf;
+    struct {
+        ucc_tl_shm_tree_t *bcast_tree;
+        ucc_tl_shm_tree_t *reduce_tree;
+    } allreduce;
 } ucc_tl_shm_task_t;
 
 ucc_status_t ucc_tl_shm_coll_finalize(ucc_coll_task_t *coll_task);
@@ -129,6 +134,7 @@ static inline ucc_status_t ucc_tl_shm_bcast_seg_ready(ucc_tl_shm_seg_t *seg,
             }
         }
     }
+
     return UCC_OK;
 }
 

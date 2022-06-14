@@ -25,7 +25,8 @@ ucc_tl_shm_perf_params_generic_bcast(ucc_tl_shm_perf_params_t *params,
     p->progress_alg         = TASK_LIB(task)->cfg.bcast_alg;
     p->super.base_tree_only = TASK_LIB(task)->cfg.base_tree_only;
     p->super.base_radix     = TASK_LIB(task)->cfg.bcast_base_radix;
-    p->super.top_radix      = TASK_LIB(task)->cfg.bcast_top_radix;
+    p->super.top_radix      = p->super.base_tree_only ? 0 :
+                                  TASK_LIB(task)->cfg.bcast_top_radix;
 }
 
 static inline void
@@ -36,7 +37,8 @@ ucc_tl_shm_perf_params_generic_reduce(ucc_tl_shm_perf_params_t *params,
 
     p->super.base_tree_only = TASK_LIB(task)->cfg.base_tree_only;
     p->super.base_radix     = TASK_LIB(task)->cfg.reduce_base_radix;
-    p->super.top_radix      = TASK_LIB(task)->cfg.reduce_top_radix;
+    p->super.top_radix      = p->super.base_tree_only ? 0 :
+                                  TASK_LIB(task)->cfg.reduce_top_radix;
 }
 #define TL_SHM_PERF_KEY_DECLARE_BCAST(_name,                        \
  /* bcast inline params */      _b_alg1, _b_bto1, _b_br1, _b_tr1,   \

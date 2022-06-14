@@ -25,7 +25,7 @@ ucc_status_t ucc_tl_shm_bcast_init(ucc_base_coll_args_t *coll_args,
                                    ucc_base_team_t *     team,
                                    ucc_coll_task_t **    task_h);
 
-void ucc_tl_shm_bcast_copy_out(ucc_tl_shm_task_t *task);
+void ucc_tl_shm_bcast_copy_out(ucc_tl_shm_task_t *task, size_t data_size);
 
 ucc_status_t ucc_tl_shm_bcast_check_read_ready(ucc_tl_shm_task_t *task);
 
