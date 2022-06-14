@@ -88,8 +88,6 @@ typedef struct ucc_tl_shm_lib_config {
     uint32_t                        fanout_top_radix;
     uint32_t                        barrier_base_radix;
     uint32_t                        barrier_top_radix;
-    uint32_t                        allreduce_base_radix;
-    uint32_t                        allreduce_top_radix;
     uint32_t                        max_trees_cached;
     uint32_t                        n_polls;
     uint32_t                        base_tree_only;

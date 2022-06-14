@@ -34,7 +34,6 @@ ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
 
     if (tree->n_children == 0) {
         /* I am leaf so I dont need to read, only notify parent*/
-
         if (tree == task->tree->base_tree || task->tree->base_tree == NULL) {
             /* I am leaf in base tree so need to copy from user buffer into my shm */
             dst = is_inline ? my_ctrl->data
@@ -83,10 +82,9 @@ ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
             return UCC_INPROGRESS;
         }
     }
-    if (root != team_rank && tree->parent == UCC_RANK_INVALID) {
-        return UCC_OK;
+    if (tree->parent != UCC_RANK_INVALID) {
+        my_ctrl->pi = seq_num; //signals to parent
     }
-    my_ctrl->pi = seq_num; //signals to parent
     return UCC_OK;
 }
 

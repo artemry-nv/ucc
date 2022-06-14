@@ -94,14 +94,6 @@ static ucc_config_field_t ucc_tl_shm_lib_config_table[] = {
      ucc_offsetof(ucc_tl_shm_lib_config_t, barrier_top_radix),
      UCC_CONFIG_TYPE_UINT},
 
-    {"ALLREDUCE_BASE_RADIX", "4", "allreduce radix for base tree",
-     ucc_offsetof(ucc_tl_shm_lib_config_t, allreduce_base_radix),
-     UCC_CONFIG_TYPE_UINT},
-
-    {"ALLREDUCE_TOP_RADIX", "4", "allreduce radix for top tree",
-     ucc_offsetof(ucc_tl_shm_lib_config_t, allreduce_top_radix),
-     UCC_CONFIG_TYPE_UINT},
-
     {"NPOLLS", "100", "n_polls", ucc_offsetof(ucc_tl_shm_lib_config_t, n_polls),
      UCC_CONFIG_TYPE_UINT},
 

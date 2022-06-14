@@ -18,6 +18,18 @@ enum
     ALLREDUCE_STAGE_BCAST_READ_CHECK,
 };
 
+static inline void
+ucc_tl_shm_allreduce_bcast_prep(ucc_coll_args_t   *args,
+                                ucc_tl_shm_task_t *task,
+                                ucc_tl_shm_tree_t *bcast_tree) {
+    task->src_buf = args->src.info.buffer;
+    args->src.info.buffer = args->dst.info.buffer; /* needed to fit bcast api */
+    task->stage = bcast_tree->top_tree ? ALLREDUCE_STAGE_TOP_TREE_BCAST :
+                                         ALLREDUCE_STAGE_BASE_TREE_BCAST;
+    task->tree = bcast_tree;
+    task->seq_num++; /* finished reduce, need seq_num to be updated for bcast */
+}
+
 static void ucc_tl_shm_allreduce_progress(ucc_coll_task_t *coll_task)
 {
     ucc_tl_shm_task_t *task        = ucc_derived_of(coll_task,
@@ -61,22 +73,13 @@ next_stage:
         if (reduce_tree->top_tree) {
             task->stage = ALLREDUCE_STAGE_TOP_TREE_REDUCE;
         } else {
-            args->src.info.buffer = args->dst.info.buffer; // needed to fit bcast api
-            task->stage = bcast_tree->top_tree ?
-                          ALLREDUCE_STAGE_TOP_TREE_BCAST :
-                          ALLREDUCE_STAGE_BASE_TREE_BCAST;
-            task->tree = bcast_tree;
-            task->seq_num++; /* finished reduce, need seq_num to be updated for bcast */
+            ucc_tl_shm_allreduce_bcast_prep(args, task, bcast_tree);
         }
         goto next_stage;
     case ALLREDUCE_STAGE_TOP_TREE_REDUCE:
         SHMCHECK_GOTO(ucc_tl_shm_reduce_read(team, seg, task, reduce_tree->top_tree,
                       is_inline, count, dt, mtype, args), task, out);
-        args->src.info.buffer = args->dst.info.buffer; // needed to fit bcast api
-        task->stage = bcast_tree->top_tree ? ALLREDUCE_STAGE_TOP_TREE_BCAST :
-                                             ALLREDUCE_STAGE_BASE_TREE_BCAST;
-        task->tree = bcast_tree;
-        task->seq_num++; /* finished reduce, need seq_num to be updated for bcast */
+        ucc_tl_shm_allreduce_bcast_prep(args, task, bcast_tree);
         goto next_stage;
     case ALLREDUCE_STAGE_TOP_TREE_BCAST:
         if (task->progress_alg == BCAST_WW || task->progress_alg == BCAST_WR) {
@@ -111,8 +114,10 @@ next_stage:
 
     /* task->seq_num was updated between reduce and bcast, needs to be reset
        to fit general collectives order, as allreduce is a single collective */
-    my_ctrl = ucc_tl_shm_get_ctrl(seg, team, rank);
-    my_ctrl->ci = task->seq_num - 1;
+    task->seq_num--;
+    my_ctrl               = ucc_tl_shm_get_ctrl(seg, team, rank);
+    my_ctrl->ci           = task->seq_num;
+    args->src.info.buffer = task->src_buf;
     /* allreduce done */
     task->super.status = UCC_OK;
     UCC_TL_SHM_PROFILE_REQUEST_EVENT(coll_task,
