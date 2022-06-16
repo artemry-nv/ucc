@@ -215,11 +215,10 @@ next_stage:
         }
         if (tree->base_tree) {
             task->stage = BCAST_STAGE_BASE_TREE;
-            goto next_stage;
         } else {
             task->stage = BCAST_STAGE_COPY_OUT;
         }
-        break;
+        goto next_stage;
     case BCAST_STAGE_BASE_TREE:
         if (task->progress_alg == BCAST_WW || task->progress_alg == BCAST_RW) {
             SHMCHECK_GOTO(ucc_tl_shm_bcast_write(team, seg, task,
