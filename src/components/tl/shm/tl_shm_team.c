@@ -288,6 +288,16 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
 
     UCC_CLASS_CALL_SUPER_INIT(ucc_tl_team_t, &ctx->super, params);
 
+    if (UCC_TL_TEAM_SIZE(self) < 2) {
+        tl_trace(tl_context->lib, "team size is too small, min supported 2");
+        return UCC_ERR_NOT_SUPPORTED;
+    }
+
+    if (!ucc_team_map_is_single_node(params->team, params->map)) {
+        tl_debug(ctx->super.super.lib, "multi node team is not supported");
+        return UCC_ERR_INVALID_PARAM;
+    }
+
     if (NULL == UCC_TL_CORE_CTX(self)->topo) {
         /* CORE context does not have topo information -
          * local context mode */
@@ -324,11 +334,6 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
         goto err_topo_init;
     }
 
-    if (!ucc_topo_is_single_node(self->topo)) {
-        tl_debug(ctx->super.super.lib, "multi node team is not supported");
-        status = UCC_ERR_INVALID_PARAM;
-        goto err_topo_cleanup;
-    }
     sock_bound = UCC_TL_CORE_CTX(self)->topo->sock_bound;
     numa_bound = UCC_TL_CORE_CTX(self)->topo->numa_bound;
 
