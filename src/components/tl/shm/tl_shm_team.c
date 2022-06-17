@@ -360,6 +360,9 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
         ucc_topo_cleanup(self->topo);
         return UCC_ERR_NO_MEMORY;
     }
+    for (i = 0; i < self->n_concurrent; i++) {
+        self->last_posted[i].reduce_root = UCC_RANK_INVALID;
+    }
 
     max_trees        = UCC_TL_SHM_TEAM_LIB(self)->cfg.max_trees_cached;
     self->tree_cache = (ucc_tl_shm_tree_cache_t *)ucc_malloc(
