@@ -31,8 +31,7 @@ next_stage:
              tree->top_tree->n_children > 0)) { //similar to bcast
             /* checks if previous collective has completed on the seg
                TODO: can be optimized if we detect bcast->reduce pattern.*/
-            SHMCHECK_GOTO(ucc_tl_shm_bcast_seg_ready(seg,
-                          task->seg_ready_seq_num, team, tree), task, out);
+            SHMCHECK_GOTO(ucc_tl_shm_check_seg_ready(task, tree, 0), task, out);
         }
         if (tree->top_tree) {
             task->stage = FANOUT_STAGE_TOP_TREE;
@@ -69,7 +68,7 @@ static ucc_status_t ucc_tl_shm_fanout_start(ucc_coll_task_t *coll_task)
     ucc_tl_shm_team_t *team = TASK_TEAM(task);
 
     UCC_TL_SHM_PROFILE_REQUEST_EVENT(coll_task, "shm_fanout_start", 0);
-    UCC_TL_SHM_SET_SEG_READY_SEQ_NUM(task, team);
+    UCC_TL_SHM_SET_SEG_READY_SEQ_NUM(task, team, UCC_RANK_INVALID);
     task->super.status = UCC_INPROGRESS;
     return ucc_progress_queue_enqueue(UCC_TL_CORE_CTX(team)->pq, &task->super);
 }

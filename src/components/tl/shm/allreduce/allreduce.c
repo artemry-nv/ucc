@@ -54,9 +54,8 @@ next_stage:
     case ALLREDUCE_STAGE_START:
         /* checks if previous collective has completed on the seg
            TODO: can be optimized if we detect bcast->reduce pattern.*/
-        SHMCHECK_GOTO(ucc_tl_shm_reduce_seg_ready(seg, task->seg_ready_seq_num,
-                                                  team, reduce_tree), task,
-                                                                      out);
+        SHMCHECK_GOTO(ucc_tl_shm_check_seg_ready(task, reduce_tree, 1), task,
+                      out);
         if (reduce_tree->base_tree) {
             task->stage = ALLREDUCE_STAGE_BASE_TREE_REDUCE;
         } else {
@@ -132,7 +131,7 @@ static ucc_status_t ucc_tl_shm_allreduce_start(ucc_coll_task_t *coll_task)
     ucc_tl_shm_team_t *team = TASK_TEAM(task);
 
     UCC_TL_SHM_PROFILE_REQUEST_EVENT(coll_task, "shm_allreduce_start", 0);
-    UCC_TL_SHM_SET_SEG_READY_SEQ_NUM(task, team);
+    UCC_TL_SHM_SET_SEG_READY_SEQ_NUM(task, team, UCC_RANK_INVALID);
     task->super.status = UCC_INPROGRESS;
     return ucc_progress_queue_enqueue(UCC_TL_CORE_CTX(team)->pq, &task->super);
 }

@@ -14,7 +14,7 @@ typedef struct ucc_tl_shm_task {
     ucc_tl_shm_seg_t *              seg;
     ucc_tl_shm_tree_t *             tree;
     ucc_tl_shm_sn_t                 seq_num;
-    ucc_tl_shm_sn_t                 seg_ready_seq_num;
+    ucc_tl_shm_last_posted_t        prev;
     int                             stage;
     int                             tree_in_cache;
     int                             first_reduce;
@@ -174,6 +174,31 @@ static inline ucc_status_t ucc_tl_shm_reduce_seg_ready(ucc_tl_shm_seg_t *seg,
     return UCC_OK;
 }
 
+static inline ucc_status_t ucc_tl_shm_check_seg_ready(ucc_tl_shm_task_t *task,
+                                                      ucc_tl_shm_tree_t *tree,
+                                                      int                is_reduce)
+{
+    ucc_tl_shm_team_t *team    = TASK_TEAM(task);
+    ucc_tl_shm_seg_t  *seg     = task->seg;
+    ucc_tl_shm_sn_t    seq_num = task->prev.seq_num;
+    ucc_tl_shm_ctrl_t *ctrl;
+
+    if (task->prev.reduce_root != UCC_RANK_INVALID) {
+        ctrl = ucc_tl_shm_get_ctrl(seg, team, task->prev.reduce_root);
+        if (ctrl->ci < seq_num) {
+            return UCC_INPROGRESS;
+        }
+        return UCC_OK;
+    } else {
+        if (is_reduce) {
+            return ucc_tl_shm_reduce_seg_ready(seg, seq_num, team, tree);
+        } else {
+            return ucc_tl_shm_bcast_seg_ready(seg, seq_num, team, tree);
+        }
+    }
+}
+
+
 static inline void
 ucc_tl_shm_copy_to_children(ucc_tl_shm_seg_t *seg, ucc_tl_shm_team_t *team,
                             ucc_kn_tree_t *tree, ucc_tl_shm_sn_t seq_num,
@@ -207,10 +232,12 @@ static inline void ucc_tl_shm_signal_to_children(ucc_tl_shm_seg_t * seg,
     }
 }
 
-#define UCC_TL_SHM_SET_SEG_READY_SEQ_NUM(_task, _team)                         \
+#define UCC_TL_SHM_SET_SEG_READY_SEQ_NUM(_task, _team, _root)                  \
     do {                                                                       \
         int _seg_id                = (_task)->seq_num % (_team)->n_concurrent; \
-        (_task)->seg_ready_seq_num = (_team)->last_posted[_seg_id];            \
-        (_team)->last_posted[_seg_id] = task->seq_num;                         \
+                                                                               \
+        (_task)->prev = (_team)->last_posted[_seg_id];                         \
+        (_team)->last_posted[_seg_id].seq_num = task->seq_num;                 \
+        (_team)->last_posted[_seg_id].reduce_root = _root;                     \
     } while (0)
 #endif

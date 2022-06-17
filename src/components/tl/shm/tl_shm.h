@@ -193,32 +193,37 @@ typedef struct ucc_tl_shm_perf_key {
 
 extern ucc_tl_shm_perf_key_t *ucc_tl_shm_perf_params[UCC_TL_SHM_N_PERF_PARAMS];
 
+typedef struct ucc_tl_shm_last_posted {
+    ucc_tl_shm_sn_t seq_num;
+    ucc_rank_t      reduce_root;
+} ucc_tl_shm_last_posted_t;
+
 typedef struct ucc_tl_shm_team {
-    ucc_tl_team_t            super;
-    void *                   oob_req;
-    perf_params_fn_t         perf_params_bcast;
-    perf_params_fn_t         perf_params_reduce;
-    ucc_tl_shm_seg_t *       segs;
-    ucc_tl_shm_sn_t          seq_num;
-    ucc_tl_shm_sn_t *        last_posted;
-    uint32_t                 n_base_groups;
-    uint32_t                 my_group_id;
-    int *                    allgather_dst;
-    int                      n_concurrent;
-    int                      is_group_leader;
-    ucc_sbgp_t *             base_groups;
-    ucc_sbgp_t *             leaders_group;
-    ucc_topo_t *             topo;
-    void **                  shm_buffers;
-    ucc_ep_map_t             ctx_map;
-    ucc_ep_map_t             group_rank_map;
-    ucc_ep_map_t             rank_group_id_map;
-    size_t                   ctrl_size;
-    size_t                   data_size;
-    size_t                   max_inline;
-    ucc_tl_shm_tree_cache_t *tree_cache;
-    ucc_tl_shm_seg_layout_t  layout;
-    ucc_status_t             status;
+    ucc_tl_team_t             super;
+    void *                    oob_req;
+    perf_params_fn_t          perf_params_bcast;
+    perf_params_fn_t          perf_params_reduce;
+    ucc_tl_shm_seg_t *        segs;
+    ucc_tl_shm_sn_t           seq_num;
+    ucc_tl_shm_last_posted_t* last_posted;
+    uint32_t                  n_base_groups;
+    uint32_t                  my_group_id;
+    int *                     allgather_dst;
+    int                       n_concurrent;
+    int                       is_group_leader;
+    ucc_sbgp_t *              base_groups;
+    ucc_sbgp_t *              leaders_group;
+    ucc_topo_t *              topo;
+    void **                   shm_buffers;
+    ucc_ep_map_t              ctx_map;
+    ucc_ep_map_t              group_rank_map;
+    ucc_ep_map_t              rank_group_id_map;
+    size_t                    ctrl_size;
+    size_t                    data_size;
+    size_t                    max_inline;
+    ucc_tl_shm_tree_cache_t  *tree_cache;
+    ucc_tl_shm_seg_layout_t   layout;
+    ucc_status_t              status;
 } ucc_tl_shm_team_t;
 
 UCC_CLASS_DECLARE(ucc_tl_shm_team_t, ucc_base_context_t *,
