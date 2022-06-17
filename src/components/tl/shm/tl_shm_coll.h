@@ -43,8 +43,7 @@ ucc_tl_shm_get_task(ucc_base_coll_args_t *coll_args, ucc_tl_shm_team_t *team)
 
     UCC_TL_SHM_PROFILE_REQUEST_NEW(task, "tl_shm_task", 0);
     ucc_coll_task_init(&task->super, coll_args, &team->super.super);
-    task->seq_num = team->seq_num;
-    team->seq_num = ((team->seq_num + 1) % UCC_TL_SHM_MAX_SN);
+    task->seq_num = team->seq_num++;
     task->seg =
         &team->segs[(task->seq_num % team->n_concurrent) * team->n_base_groups];
     task->super.finalize = ucc_tl_shm_coll_finalize;
