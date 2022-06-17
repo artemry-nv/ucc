@@ -16,7 +16,6 @@ typedef struct ucc_tl_shm_task {
     ucc_tl_shm_sn_t                 seq_num;
     ucc_tl_shm_last_posted_t        prev;
     int                             stage;
-    int                             tree_in_cache;
     int                             first_reduce;
     ucc_tl_shm_bcast_progress_alg_t progress_alg;
     ucc_rank_t                      data_rank;
@@ -59,19 +58,12 @@ ucc_status_t ucc_tl_shm_coll_init(ucc_base_coll_args_t *coll_args,
                                   ucc_base_team_t *     team,
                                   ucc_coll_task_t **    task);
 
-int ucc_tl_shm_cache_tree_lookup(ucc_tl_shm_team_t *          team,
-                                 ucc_tl_shm_tree_cache_key_t *key,
-                                 ucc_tl_shm_tree_t **         tree);
-
-int ucc_tl_shm_cache_tree(ucc_tl_shm_team_t *          team,
-                          ucc_tl_shm_tree_cache_key_t *key,
-                          ucc_tl_shm_tree_t *          tree);
-
 ucc_status_t ucc_tl_shm_tree_init(ucc_tl_shm_team_t *team, ucc_rank_t root,
                                   ucc_rank_t base_radix, ucc_rank_t top_radix,
-                                  int *tree_in_cache, ucc_coll_type_t coll_type,
-                                  int                 base_tree_only,
+                                  ucc_coll_type_t coll_type, int base_tree_only,
                                   ucc_tl_shm_tree_t **tree_p);
+
+void ucc_tl_shm_tree_cleanup(ucc_tl_shm_tree_t *tree);
 
 static inline ucc_tl_shm_ctrl_t *
 ucc_tl_shm_get_ctrl(ucc_tl_shm_seg_t *seg, ucc_tl_shm_team_t *team,

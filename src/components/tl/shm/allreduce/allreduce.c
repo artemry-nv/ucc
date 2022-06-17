@@ -162,7 +162,7 @@ ucc_status_t ucc_tl_shm_allreduce_init(ucc_base_coll_args_t *coll_args,
 
     status = ucc_tl_shm_tree_init(
         team, TASK_ARGS(task).root, params_bcast.super.base_radix,
-        params_bcast.super.top_radix, &task->tree_in_cache,
+        params_bcast.super.top_radix,
         UCC_COLL_TYPE_BCAST, params_bcast.super.base_tree_only,
         &task->allreduce.bcast_tree);
 
@@ -175,7 +175,7 @@ ucc_status_t ucc_tl_shm_allreduce_init(ucc_base_coll_args_t *coll_args,
 
     status = ucc_tl_shm_tree_init(
         team, TASK_ARGS(task).root, params_reduce.super.base_radix,
-        params_reduce.super.top_radix, &task->tree_in_cache,
+        params_reduce.super.top_radix,
         UCC_COLL_TYPE_REDUCE, params_reduce.super.base_tree_only,
         &task->allreduce.reduce_tree);
 

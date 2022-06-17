@@ -192,7 +192,7 @@ ucc_status_t ucc_tl_shm_reduce_init(ucc_base_coll_args_t *coll_args,
 
     status = ucc_tl_shm_tree_init(
         team, coll_args->args.root, params.super.base_radix,
-        params.super.top_radix, &task->tree_in_cache, UCC_COLL_TYPE_REDUCE,
+        params.super.top_radix, UCC_COLL_TYPE_REDUCE,
         params.super.base_tree_only, &task->tree);
 
     if (ucc_unlikely(UCC_OK != status)) {

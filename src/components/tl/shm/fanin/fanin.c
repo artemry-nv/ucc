@@ -94,7 +94,7 @@ ucc_status_t ucc_tl_shm_fanin_init(ucc_base_coll_args_t *coll_args,
     task->stage          = FANIN_STAGE_START;
 
     status = ucc_tl_shm_tree_init(
-        team, coll_args->args.root, base_radix, top_radix, &task->tree_in_cache,
+        team, coll_args->args.root, base_radix, top_radix,
         UCC_COLL_TYPE_FANIN, bto, &task->tree);
 
     if (ucc_unlikely(UCC_OK != status)) {
