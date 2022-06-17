@@ -138,6 +138,7 @@ typedef struct ucc_tl_shm_tree {
                                  does not exists or the process is not part of it */
     ucc_kn_tree_t *top_tree; /* tree for leaders group, can be NULL if the group
                                  does not exists or the process is not part of it */
+    int            cached;
 } ucc_tl_shm_tree_t;
 
 typedef struct ucc_tl_shm_tree_cache_key {

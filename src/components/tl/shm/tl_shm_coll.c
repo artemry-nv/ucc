@@ -13,18 +13,20 @@ ucc_status_t ucc_tl_shm_coll_finalize(ucc_coll_task_t *coll_task)
 {
     ucc_tl_shm_task_t *task = ucc_derived_of(coll_task, ucc_tl_shm_task_t);
 
-    if (!task->tree_in_cache) {
-        ucc_free(task->tree->base_tree);
-        ucc_free(task->tree->top_tree);
-        ucc_free(task->tree);
+    if (TASK_ARGS(task).coll_type == UCC_COLL_TYPE_ALLREDUCE) {
+        ucc_tl_shm_tree_cleanup(task->allreduce.bcast_tree);
+        ucc_tl_shm_tree_cleanup(task->allreduce.reduce_tree);
+    } else {
+        ucc_tl_shm_tree_cleanup(task->tree);
     }
+
     tl_trace(UCC_TASK_LIB(task), "finalize coll task %p", task);
     UCC_TL_SHM_PROFILE_REQUEST_FREE(task);
     ucc_mpool_put(task);
     return UCC_OK;
 }
 
-int ucc_tl_shm_cache_tree_lookup(ucc_tl_shm_team_t *          team,
+static ucc_status_t ucc_tl_shm_cache_tree_lookup(ucc_tl_shm_team_t * team,
                                  ucc_tl_shm_tree_cache_key_t *key,
                                  ucc_tl_shm_tree_t **         tree)
 {
@@ -37,13 +39,13 @@ int ucc_tl_shm_cache_tree_lookup(ucc_tl_shm_team_t *          team,
             elems[i].key.root == key->root &&
             elems[i].key.base_tree_only == key->base_tree_only) {
             *tree = elems[i].tree;
-            return 1;
+            return UCC_OK;
         }
     }
-    return 0;
+    return UCC_ERR_NOT_FOUND;
 }
 
-int ucc_tl_shm_cache_tree(ucc_tl_shm_team_t *          team,
+static void ucc_tl_shm_cache_tree(ucc_tl_shm_team_t *          team,
                           ucc_tl_shm_tree_cache_key_t *key,
                           ucc_tl_shm_tree_t *          tree)
 {
@@ -57,15 +59,14 @@ int ucc_tl_shm_cache_tree(ucc_tl_shm_team_t *          team,
         elem->key.root           = key->root;
         elem->key.coll_type      = key->coll_type;
         elem->key.base_tree_only = key->base_tree_only;
+        tree->cached             = 1;
         team->tree_cache->size++;
-        return 1;
     }
-    return 0;
 }
 
 ucc_status_t ucc_tl_shm_tree_init(ucc_tl_shm_team_t *team, ucc_rank_t root,
                                   ucc_rank_t base_radix, ucc_rank_t top_radix,
-                                  int *tree_in_cache, ucc_coll_type_t coll_type,
+                                  ucc_coll_type_t coll_type,
                                   int                 base_tree_only,
                                   ucc_tl_shm_tree_t **tree_p)
 {
@@ -90,7 +91,6 @@ ucc_status_t ucc_tl_shm_tree_init(ucc_tl_shm_team_t *team, ucc_rank_t root,
                                        .base_tree_only = base_tree_only};
 
     if (ucc_tl_shm_cache_tree_lookup(team, &key, tree_p) == 1) {
-        *tree_in_cache = 1;
         return UCC_OK;
     }
 
@@ -100,6 +100,7 @@ ucc_status_t ucc_tl_shm_tree_init(ucc_tl_shm_team_t *team, ucc_rank_t root,
         return UCC_ERR_NO_MEMORY;
     }
 
+    shm_tree->cached    = 0;
     shm_tree->base_tree = NULL;
     shm_tree->top_tree  = NULL;
     base_tree_size      = ucc_tl_shm_kn_tree_size(group_size, base_radix);
@@ -114,7 +115,7 @@ ucc_status_t ucc_tl_shm_tree_init(ucc_tl_shm_team_t *team, ucc_rank_t root,
         ucc_tl_shm_kn_tree_init(group_size, root, team_rank, base_radix,
                                 coll_type, base_tree);
         shm_tree->base_tree = base_tree;
-        *tree_in_cache      = ucc_tl_shm_cache_tree(team, &key, shm_tree);
+        ucc_tl_shm_cache_tree(team, &key, shm_tree);
         *tree_p             = shm_tree;
         return UCC_OK;
     }
@@ -210,7 +211,17 @@ ucc_status_t ucc_tl_shm_tree_init(ucc_tl_shm_team_t *team, ucc_rank_t root,
         ucc_free(top_tree);
     }
 
-    *tree_in_cache = ucc_tl_shm_cache_tree(team, &key, shm_tree);
+    ucc_tl_shm_cache_tree(team, &key, shm_tree);
     *tree_p        = shm_tree;
     return UCC_OK;
+}
+
+void ucc_tl_shm_tree_cleanup(ucc_tl_shm_tree_t *tree)
+{
+    if (tree->cached) {
+        return;
+    }
+    ucc_free(tree->base_tree);
+    ucc_free(tree->top_tree);
+    ucc_free(tree);
 }
