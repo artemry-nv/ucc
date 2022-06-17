@@ -13,7 +13,13 @@ ucc_status_t ucc_tl_shm_coll_finalize(ucc_coll_task_t *coll_task)
 {
     ucc_tl_shm_task_t *task = ucc_derived_of(coll_task, ucc_tl_shm_task_t);
 
-    ucc_tl_shm_tree_cleanup(task->tree);
+    if (TASK_ARGS(task).coll_type == UCC_COLL_TYPE_ALLREDUCE) {
+        ucc_tl_shm_tree_cleanup(task->allreduce.bcast_tree);
+        ucc_tl_shm_tree_cleanup(task->allreduce.reduce_tree);
+    } else {
+        ucc_tl_shm_tree_cleanup(task->tree);
+    }
+
     tl_trace(UCC_TASK_LIB(task), "finalize coll task %p", task);
     UCC_TL_SHM_PROFILE_REQUEST_FREE(task);
     ucc_mpool_put(task);
