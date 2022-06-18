@@ -90,7 +90,7 @@ ucc_status_t ucc_tl_shm_tree_init(ucc_tl_shm_team_t *team, ucc_rank_t root,
                                        .coll_type      = coll_type,
                                        .base_tree_only = base_tree_only};
 
-    if (ucc_tl_shm_cache_tree_lookup(team, &key, tree_p) == 1) {
+    if (ucc_tl_shm_cache_tree_lookup(team, &key, tree_p) == UCC_OK) {
         return UCC_OK;
     }
 
