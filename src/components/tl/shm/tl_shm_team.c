@@ -272,19 +272,57 @@ allgather:
     return UCC_OK;
 }
 
+static ucc_sbgp_type_t
+ucc_tl_shm_get_group_sbgp_type(ucc_tl_shm_team_t *team)
+{
+    int                     numa_bound, sock_bound;
+    ucc_tl_shm_group_mode_t gm;
+
+    gm         = UCC_TL_SHM_TEAM_LIB(team)->cfg.group_mode;
+    sock_bound = UCC_TL_CORE_CTX(team)->topo->sock_bound;
+    numa_bound = UCC_TL_CORE_CTX(team)->topo->numa_bound;
+
+    if (gm == GROUP_BY_SOCKET) {
+        if (sock_bound != 1) {
+            tl_error(UCC_TL_TEAM_LIB(team), "group_mode SOCKET can not be used"
+                     " because processes are not bound to sockets");
+            return UCC_SBGP_NUMA_LEADERS;
+        }
+        return UCC_SBGP_SOCKET_LEADERS;
+    }
+
+    if (gm == GROUP_BY_NUMA) {
+        if (numa_bound != 1) {
+            tl_error(UCC_TL_TEAM_LIB(team), "group_mode NUMA can not be used"
+                     " because processes are not bound to numa nodes");
+            return UCC_SBGP_SOCKET_LEADERS;
+        } else {
+            return UCC_SBGP_NUMA_LEADERS;
+        }
+    }
+
+    /* both bindgins are available and gm == AUTO,
+       use some bechmark based heuristics */
+    if (UCC_CPU_VENDOR_INTEL == ucc_arch_get_cpu_vendor()) {
+        /* On intel default by socket grouping is best */
+        return UCC_SBGP_SOCKET_LEADERS;
+    }
+    return (ucc_topo_n_numas(team->topo) > ucc_topo_n_sockets(team->topo)) ?
+        UCC_SBGP_NUMA_LEADERS : UCC_SBGP_SOCKET_LEADERS;
+}
+
 UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
                     const ucc_base_team_params_t *params)
 {
     ucc_tl_shm_context_t *ctx =
         ucc_derived_of(tl_context, ucc_tl_shm_context_t);
     ucc_status_t status;
-    int          n_sbgps, i, max_trees, numa_bound, sock_bound;
+    int          n_sbgps, i, max_trees;
     ucc_rank_t   team_size;
     uint32_t     cfg_ctrl_size, group_size;
     ucc_subset_t subset;
     size_t       page_size;
-    ucc_tl_shm_group_mode_t gm;
-    ucc_sbgp_type_t         group_sbgp_type;
+    ucc_sbgp_type_t group_sbgp_type;
 
     UCC_CLASS_CALL_SUPER_INIT(ucc_tl_team_t, &ctx->super, params);
 
@@ -326,29 +364,11 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
                                    team_size;
     self->max_inline         = cfg_ctrl_size - ucc_offsetof(ucc_tl_shm_ctrl_t,
                                                             data);
-    gm                       = UCC_TL_SHM_TEAM_LIB(self)->cfg.group_mode;
     status = ucc_topo_init(subset, UCC_TL_CORE_CTX(self)->topo, &self->topo);
 
     if (UCC_OK != status) {
         tl_error(ctx->super.super.lib, "failed to init team topo");
         goto err_topo_init;
-    }
-
-    sock_bound = UCC_TL_CORE_CTX(self)->topo->sock_bound;
-    numa_bound = UCC_TL_CORE_CTX(self)->topo->numa_bound;
-
-    if (sock_bound != 1 && gm == GROUP_BY_SOCKET) {
-        tl_debug(ctx->super.super.lib, "group_mode SOCKET can not be used "
-                 "because processes are not bound to sockets");
-        status = UCC_ERR_NOT_SUPPORTED;
-        goto err_topo_cleanup;
-    }
-
-    if (numa_bound != 1 && gm == GROUP_BY_NUMA) {
-        tl_debug(ctx->super.super.lib, "group_mode NUMA can not be used "
-                 "because processes are not bound to numa nodes");
-        status = UCC_ERR_NOT_SUPPORTED;
-        goto err_topo_cleanup;
     }
 
     self->last_posted = ucc_calloc(sizeof(*self->last_posted),
@@ -357,8 +377,8 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
         tl_error(ctx->super.super.lib,
                  "failed to allocate %zd bytes for last_posted array",
                  sizeof(*self->last_posted) * self->n_concurrent);
-        ucc_topo_cleanup(self->topo);
-        return UCC_ERR_NO_MEMORY;
+        status = UCC_ERR_NO_MEMORY;
+        goto err_topo_cleanup;
     }
     for (i = 0; i < self->n_concurrent; i++) {
         self->last_posted[i].reduce_root = UCC_RANK_INVALID;
@@ -388,13 +408,8 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
     }
 
     self->tree_cache->size = 0;
-    group_sbgp_type        = UCC_SBGP_SOCKET_LEADERS;
+    group_sbgp_type        = ucc_tl_shm_get_group_sbgp_type(self);
 
-    if (gm == GROUP_BY_NUMA ||
-        (gm == GROUP_BY_AUTO &&
-         (ucc_topo_n_numas(self->topo) > ucc_topo_n_sockets(self->topo)))) {
-        group_sbgp_type = UCC_SBGP_NUMA_LEADERS;
-    }
     self->leaders_group = ucc_topo_get_sbgp(self->topo, group_sbgp_type);
 
     if (self->leaders_group->status == UCC_SBGP_NOT_EXISTS ||
