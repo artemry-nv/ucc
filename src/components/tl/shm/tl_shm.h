@@ -116,9 +116,7 @@ typedef struct ucc_tl_shm_context {
 UCC_CLASS_DECLARE(ucc_tl_shm_context_t, const ucc_base_context_params_t *,
                   const ucc_base_config_t *);
 
-typedef uint32_t ucc_tl_shm_sn_t;
-
-#define UCC_TL_SHM_MAX_SN UINT32_MAX
+typedef uint64_t ucc_tl_shm_sn_t;
 
 typedef struct ucc_tl_shm_ctrl {
     volatile ucc_tl_shm_sn_t pi;       /* producer index */
