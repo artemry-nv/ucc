@@ -188,6 +188,7 @@ typedef struct ucc_tl_shm_perf_key {
     perf_params_fn_t        reduce_func;
     ucc_tl_shm_seg_layout_t layout;
     const char *            label;
+    uint32_t                ds;
 } ucc_tl_shm_perf_key_t;
 
 extern ucc_tl_shm_perf_key_t *ucc_tl_shm_perf_params[UCC_TL_SHM_N_PERF_PARAMS];
@@ -219,6 +220,7 @@ typedef struct ucc_tl_shm_team {
     ucc_ep_map_t              rank_group_id_map;
     size_t                    ctrl_size;
     size_t                    data_size;
+    uint32_t                  arch_data_size;
     size_t                    max_inline;
     ucc_tl_shm_tree_cache_t  *tree_cache;
     ucc_tl_shm_seg_layout_t   layout;

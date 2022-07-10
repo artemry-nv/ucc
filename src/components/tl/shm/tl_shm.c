@@ -46,7 +46,7 @@ static ucc_config_field_t ucc_tl_shm_lib_config_table[] = {
     {"CS", "256", "Control size of each section in shm segment",
      ucc_offsetof(ucc_tl_shm_lib_config_t, ctrl_size), UCC_CONFIG_TYPE_UINT},
 
-    {"DS", "4096", "Data size of each section in shm segment",
+    {"DS", "8192", "Data size of each section in shm segment",
      ucc_offsetof(ucc_tl_shm_lib_config_t, data_size), UCC_CONFIG_TYPE_UINT},
 
     {"BCAST_ALG", "wr",

@@ -81,7 +81,7 @@ ucc_tl_shm_get_data(ucc_tl_shm_seg_t *seg, ucc_tl_shm_team_t *team,
 {
     int        group     = ucc_ep_map_eval(team->rank_group_id_map, rank);
     ucc_rank_t grank     = ucc_ep_map_eval(team->group_rank_map, rank);
-    size_t     data_size = UCC_TL_SHM_TEAM_LIB(team)->cfg.data_size;
+    size_t     data_size = team->arch_data_size;
 
     return PTR_OFFSET(seg[group].data, data_size * grank);
 }
