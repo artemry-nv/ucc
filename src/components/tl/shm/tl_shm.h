@@ -200,15 +200,12 @@ typedef struct ucc_tl_shm_last_posted {
 
 typedef struct ucc_tl_shm_team {
     ucc_tl_team_t             super;
-    void *                    oob_req;
-    perf_params_fn_t          perf_params_bcast;
-    perf_params_fn_t          perf_params_reduce;
     ucc_tl_shm_seg_t *        segs;
     ucc_tl_shm_sn_t           seq_num;
     ucc_tl_shm_last_posted_t* last_posted;
+    size_t                    max_inline;
     uint32_t                  n_base_groups;
     uint32_t                  my_group_id;
-    int *                     allgather_dst;
     int                       n_concurrent;
     int                       is_group_leader;
     ucc_sbgp_t *              base_groups;
@@ -221,10 +218,14 @@ typedef struct ucc_tl_shm_team {
     size_t                    ctrl_size;
     size_t                    data_size;
     uint32_t                  arch_data_size;
-    size_t                    max_inline;
     ucc_tl_shm_tree_cache_t  *tree_cache;
     ucc_tl_shm_seg_layout_t   layout;
     ucc_status_t              status;
+    int *                     allgather_dst;
+    void *                    oob_req;
+    ucc_coll_task_t          *init_fanin_task;
+    perf_params_fn_t          perf_params_bcast;
+    perf_params_fn_t          perf_params_reduce;
 } ucc_tl_shm_team_t;
 
 UCC_CLASS_DECLARE(ucc_tl_shm_team_t, ucc_base_context_t *,

@@ -265,7 +265,6 @@ allgather:
     team->allgather_dst[team_size] = shmid;
     status = oob.allgather(&team->allgather_dst[team_size], team->allgather_dst,
                            sizeof(int), oob.coll_info, &team->oob_req);
-
     if (UCC_OK != status) {
         tl_error(team->super.super.context->lib, "allgather failed");
         return status;
@@ -557,52 +556,92 @@ ucc_status_t ucc_tl_shm_team_create_test(ucc_base_team_t *tl_team)
 {
     ucc_tl_shm_team_t * team   = ucc_derived_of(tl_team, ucc_tl_shm_team_t);
     ucc_team_oob_coll_t oob    = UCC_TL_TEAM_OOB(team);
-    ucc_status_t        status = oob.req_test(team->oob_req);
+    ucc_status_t        status;
     int                 i, shmid;
     ucc_rank_t          group_leader;
 
-    if (status == UCC_INPROGRESS) {
-        return UCC_INPROGRESS;
-    }
-    if (status != UCC_OK) {
-        oob.req_free(team->oob_req);
-        tl_error(team->super.super.context->lib, "oob req test failed");
-        return status;
-    }
-    status = oob.req_free(team->oob_req);
-    if (status != UCC_OK) {
-        tl_error(team->super.super.context->lib, "oob req free failed");
-        return status;
-    }
-
-    /* Exchange keys */
-    for (i = 0; i < team->n_base_groups; i++) {
-        group_leader = ucc_ep_map_eval(team->base_groups[i].map, 0);
-        shmid        = team->allgather_dst[group_leader];
-        ucc_assert(group_leader != 0 || shmid != -1);
-
-        if (shmid == -1) {
-            /* no shm seg from that group leader */
-            continue;
+    if (team->oob_req) {
+        status = oob.req_test(team->oob_req);
+        if (status == UCC_INPROGRESS) {
+            return UCC_INPROGRESS;
         }
-
-        if (shmid == -2) {
-            return UCC_ERR_NO_RESOURCE;
+        if (status != UCC_OK) {
+            oob.req_free(team->oob_req);
+            tl_error(team->super.super.context->lib, "oob req test failed");
+            return status;
         }
+        status = oob.req_free(team->oob_req);
+        if (status != UCC_OK) {
+            tl_error(team->super.super.context->lib, "oob req free failed");
+            return status;
+        }
+        team->oob_req = NULL;
 
-        if (UCC_TL_TEAM_RANK(team) != group_leader) {
-            team->shm_buffers[i] = (void *)shmat(shmid, NULL, 0);
-            if (team->shm_buffers[i] == (void *)-1) {
-                tl_error(team->super.super.context->lib,
-                         "Child failed to attach to shmseg, errno: %s\n",
-                         strerror(errno));
+        for (i = 0; i < team->n_base_groups; i++) {
+            group_leader = ucc_ep_map_eval(team->base_groups[i].map, 0);
+            shmid        = team->allgather_dst[group_leader];
+            ucc_assert(group_leader != 0 || shmid != -1);
+
+            if (shmid == -1) {
+                /* no shm seg from that group leader */
+                continue;
+            }
+
+            if (shmid == -2) {
                 return UCC_ERR_NO_RESOURCE;
+            }
+
+            if (UCC_TL_TEAM_RANK(team) != group_leader) {
+                team->shm_buffers[i] = (void *)shmat(shmid, NULL, 0);
+                if (team->shm_buffers[i] == (void *)-1) {
+                    tl_error(team->super.super.context->lib,
+                             "Child failed to attach to shmseg, errno: %s\n",
+                             strerror(errno));
+                    return UCC_ERR_NO_RESOURCE;
+                }
+            }
+        }
+        ucc_tl_shm_init_segs(team);
+        ucc_free(team->allgather_dst);
+
+        {
+            /* Launching a sync fanin to the leader of the base_group[0].
+               Otherwise, it will immediately finish the team creation and may
+               go to team destruction and segment will be removed from OS
+               before other ranks attached to it. */
+            ucc_base_coll_args_t args = {
+                .mask           = 0,
+                .args.mask      = 0,
+                .args.root      = ucc_ep_map_eval(team->base_groups[0].map, 0),
+                .args.coll_type = UCC_COLL_TYPE_FANIN,
+                .team           = UCC_TL_CORE_TEAM(team),
+            };
+            status = ucc_tl_shm_fanin_init(&args, tl_team, &team->init_fanin_task);
+            if (status < 0 ) {
+                tl_error(UCC_TL_TEAM_LIB(team), "failed to init sync fanin: %s",
+                         ucc_status_string(status));
+                return status;
+            }
+
+            status = ucc_collective_post(&team->init_fanin_task->super);
+            if (status < 0 ) {
+                tl_error(UCC_TL_TEAM_LIB(team), "failed to post sync fanin: %s",
+                         ucc_status_string(status));
+                return status;
             }
         }
     }
-    ucc_tl_shm_init_segs(team);
 
-    ucc_free(team->allgather_dst);
+    status = ucc_collective_test(&team->init_fanin_task->super);
+    if (status < 0) {
+        tl_error(UCC_TL_TEAM_LIB(team), "failure during sync fanin: %s",
+                 ucc_status_string(status));
+        return status;
+    } else if (UCC_INPROGRESS == status) {
+        return UCC_INPROGRESS;
+    }
+    ucc_collective_finalize(&team->init_fanin_task->super);
+
     team->status = UCC_OK;
     return UCC_OK;
 }
