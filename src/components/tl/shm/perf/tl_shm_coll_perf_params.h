@@ -40,82 +40,83 @@ ucc_tl_shm_perf_params_generic_reduce(ucc_tl_shm_perf_params_t *params,
     p->super.top_radix      = p->super.base_tree_only ? 0 :
                                   TASK_LIB(task)->cfg.reduce_top_radix;
 }
-#define TL_SHM_PERF_KEY_DECLARE_BCAST(_name,                        \
- /* bcast inline params */      _b_alg1, _b_bto1, _b_br1, _b_tr1,   \
- /* bcast large params  */      _b_alg2, _b_bto2, _b_br2, _b_tr2)   \
-                                                                    \
-    static void ucc_tl_shm_ ## _name ## _bcast(                     \
-        ucc_tl_shm_perf_params_t *params,                           \
-        ucc_tl_shm_task_t        *task)                             \
-    {                                                               \
-        ucc_tl_shm_team_t *team      = TASK_TEAM(task);             \
-        size_t             data_size =                              \
-            ucc_coll_args_msgsize(&task->super.bargs);              \
-        ucc_tl_shm_pp_bcast_t *p =                                  \
-            ucc_derived_of(params, ucc_tl_shm_pp_bcast_t);          \
-                                                                    \
-        if (data_size <= team->max_inline) {                        \
-            p->progress_alg         = _b_alg1;                      \
-            p->super.base_tree_only = _b_bto1;                      \
-            p->super.base_radix     = _b_br1;                       \
-            p->super.top_radix      = _b_tr1;                       \
-        } else {                                                    \
-            p->progress_alg         = _b_alg2;                      \
-            p->super.base_tree_only = _b_bto2;                      \
-            p->super.base_radix     = _b_br2;                       \
-            p->super.top_radix      = _b_tr2;                       \
-        }                                                           \
-    }                                                               \
+#define TL_SHM_PERF_KEY_DECLARE_BCAST(_name,                          \
+ /* bcast inline params */      _b_alg1, _b_bto1, _b_br1, _b_tr1,     \
+ /* bcast large params  */      _b_alg2, _b_bto2, _b_br2, _b_tr2)     \
+                                                                      \
+    static void ucc_tl_shm_ ## _name ## _bcast(                       \
+        ucc_tl_shm_perf_params_t *params,                             \
+        ucc_tl_shm_task_t        *task)                               \
+    {                                                                 \
+        ucc_tl_shm_team_t *team      = TASK_TEAM(task);               \
+        size_t             data_size =                                \
+            ucc_coll_args_msgsize(&task->super.bargs);                \
+        ucc_tl_shm_pp_bcast_t *p =                                    \
+            ucc_derived_of(params, ucc_tl_shm_pp_bcast_t);            \
+                                                                      \
+        if (data_size <= team->max_inline) {                          \
+            p->progress_alg         = _b_alg1;                        \
+            p->super.base_tree_only = _b_bto1;                        \
+            p->super.base_radix     = _b_br1;                         \
+            p->super.top_radix      = _b_tr1;                         \
+        } else {                                                      \
+            p->progress_alg         = _b_alg2;                        \
+            p->super.base_tree_only = _b_bto2;                        \
+            p->super.base_radix     = _b_br2;                         \
+            p->super.top_radix      = _b_tr2;                         \
+        }                                                             \
+    }                                                                 \
 
-#define TL_SHM_PERF_KEY_DECLARE_REDUCE(_name,                       \
- /* reduce inline params */     _r_bto1, _r_br1, _r_tr1,            \
- /* reduce large params  */     _r_bto2, _r_br2, _r_tr2)            \
-                                                                    \
-    static void ucc_tl_shm_ ## _name ## _reduce(                    \
-        ucc_tl_shm_perf_params_t *params,                           \
-        ucc_tl_shm_task_t        *task)                             \
-    {                                                               \
-        ucc_tl_shm_team_t *team      = TASK_TEAM(task);             \
-        size_t             data_size =                              \
-            ucc_coll_args_msgsize(&task->super.bargs);              \
-        ucc_tl_shm_pp_reduce_t *p =                                 \
-            ucc_derived_of(params, ucc_tl_shm_pp_reduce_t);         \
-                                                                    \
-        if (data_size <= team->max_inline) {                        \
-            p->super.base_tree_only = _r_bto1;                      \
-            p->super.base_radix     = _r_br1;                       \
-            p->super.top_radix      = _r_tr1;                       \
-        } else {                                                    \
-            p->super.base_tree_only = _r_bto2;                      \
-            p->super.base_radix     = _r_br2;                       \
-            p->super.top_radix      = _r_tr2;                       \
-        }                                                           \
-    }                                                               \
+#define TL_SHM_PERF_KEY_DECLARE_REDUCE(_name,                         \
+ /* reduce inline params */     _r_bto1, _r_br1, _r_tr1,              \
+ /* reduce large params  */     _r_bto2, _r_br2, _r_tr2)              \
+                                                                      \
+    static void ucc_tl_shm_ ## _name ## _reduce(                      \
+        ucc_tl_shm_perf_params_t *params,                             \
+        ucc_tl_shm_task_t        *task)                               \
+    {                                                                 \
+        ucc_tl_shm_team_t *team      = TASK_TEAM(task);               \
+        size_t             data_size =                                \
+            ucc_coll_args_msgsize(&task->super.bargs);                \
+        ucc_tl_shm_pp_reduce_t *p =                                   \
+            ucc_derived_of(params, ucc_tl_shm_pp_reduce_t);           \
+                                                                      \
+        if (data_size <= team->max_inline) {                          \
+            p->super.base_tree_only = _r_bto1;                        \
+            p->super.base_radix     = _r_br1;                         \
+            p->super.top_radix      = _r_tr1;                         \
+        } else {                                                      \
+            p->super.base_tree_only = _r_bto2;                        \
+            p->super.base_radix     = _r_br2;                         \
+            p->super.top_radix      = _r_tr2;                         \
+        }                                                             \
+    }                                                                 \
 
-#define TL_SHM_PERF_KEY_DECLARE_BASE(_name, _vendor, _model,        \
-                                     _bcast_fn, _reduce_fn,         \
-                                     _layout, _n_groups, ...)       \
-    ucc_tl_shm_perf_key_t _name = {                                 \
-        .cpu_vendor  = UCC_CPU_VENDOR_ ## _vendor,                  \
-        .cpu_model   = UCC_CPU_MODEL_ ## _vendor ## _ ## _model,    \
-        .label       = UCC_PP_MAKE_STRING(_name),                   \
-        .groups      = { __VA_ARGS__},                              \
-        .n_groups    = _n_groups,                                   \
-        .layout      = _layout,                                     \
-        .bcast_func  = _bcast_fn,                                   \
-        .reduce_func = _reduce_fn}
+#define TL_SHM_PERF_KEY_DECLARE_BASE(_name, _vendor, _model,          \
+                                     _bcast_fn, _reduce_fn,           \
+                                     _layout, _n_groups, _ds, ...)    \
+    ucc_tl_shm_perf_key_t _name = {                                   \
+        .cpu_vendor  = UCC_CPU_VENDOR_ ## _vendor,                    \
+        .cpu_model   = UCC_CPU_MODEL_ ## _vendor ## _ ## _model,      \
+        .label       = UCC_PP_MAKE_STRING(_name),                     \
+        .groups      = { __VA_ARGS__},                                \
+        .n_groups    = _n_groups,                                     \
+        .layout      = _layout,                                       \
+        .bcast_func  = _bcast_fn,                                     \
+        .reduce_func = _reduce_fn,                                    \
+        .ds          = _ds}
 
-#define TL_SHM_PERF_KEY_DECLARE(_name, _vendor, _model,             \
- /* bcast inline params */      _b_alg1, _b_bto1, _b_br1, _b_tr1,   \
- /* bcast large params  */      _b_alg2, _b_bto2, _b_br2, _b_tr2,   \
- /* reduce inline params */     _r_bto1, _r_br1, _r_tr1,            \
- /* reduce large params  */     _r_bto2, _r_br2, _r_tr2,            \
-                                _layout, _n_groups, ...)            \
-    TL_SHM_PERF_KEY_DECLARE_BCAST(_name, _b_alg1, _b_bto1, _b_br1,  \
-                         _b_tr1, _b_alg2, _b_bto2, _b_br2, _b_tr2)  \
-    TL_SHM_PERF_KEY_DECLARE_REDUCE(_name, _r_bto1, _r_br1,          \
-                         _r_tr1, _r_bto2, _r_br2, _r_tr2)           \
-    TL_SHM_PERF_KEY_DECLARE_BASE(_name, _vendor, _model,            \
-                                 ucc_tl_shm_ ## _name ## _bcast,    \
-                                 ucc_tl_shm_ ## _name ## _reduce,   \
-                                 _layout, _n_groups, __VA_ARGS__)
+#define TL_SHM_PERF_KEY_DECLARE(_name, _vendor, _model,               \
+ /* bcast inline params */      _b_alg1, _b_bto1, _b_br1, _b_tr1,     \
+ /* bcast large params  */      _b_alg2, _b_bto2, _b_br2, _b_tr2,     \
+ /* reduce inline params */     _r_bto1, _r_br1, _r_tr1,              \
+ /* reduce large params  */     _r_bto2, _r_br2, _r_tr2,              \
+                                _layout, _n_groups, _ds, ...)         \
+    TL_SHM_PERF_KEY_DECLARE_BCAST(_name, _b_alg1, _b_bto1, _b_br1,    \
+                         _b_tr1, _b_alg2, _b_bto2, _b_br2, _b_tr2)    \
+    TL_SHM_PERF_KEY_DECLARE_REDUCE(_name, _r_bto1, _r_br1,            \
+                         _r_tr1, _r_bto2, _r_br2, _r_tr2)             \
+    TL_SHM_PERF_KEY_DECLARE_BASE(_name, _vendor, _model,              \
+                                 ucc_tl_shm_ ## _name ## _bcast,      \
+                                 ucc_tl_shm_ ## _name ## _reduce,     \
+                                 _layout, _n_groups, _ds, __VA_ARGS__)
