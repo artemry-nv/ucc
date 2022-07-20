@@ -243,6 +243,7 @@ static ucc_status_t ucc_tl_shm_seg_alloc(ucc_tl_shm_team_t *team)
     /* LOWEST on node rank  within the comm will initiate the segment creation.
      * Everyone else will attach. */
     if (shmsize != 0) {
+        shmsize += sizeof(uint32_t);
         shmid = shmget(IPC_PRIVATE, shmsize, SHM_MODE);
         if (shmid < 0) {
             tl_error(team->super.super.context->lib,
@@ -559,6 +560,7 @@ ucc_status_t ucc_tl_shm_team_create_test(ucc_base_team_t *tl_team)
     ucc_status_t        status;
     int                 i, shmid;
     ucc_rank_t          group_leader;
+    struct shmid_ds     ds;
 
     if (team->oob_req) {
         status = oob.req_test(team->oob_req);
@@ -601,46 +603,23 @@ ucc_status_t ucc_tl_shm_team_create_test(ucc_base_team_t *tl_team)
                 }
             }
         }
+        /* Need to wait for others to join to segment.
+           Otherwise, they may immediately finish the team creation and may
+           go to team destruction and segment will be removed from OS
+           before everybody attached to it. */
+
+        shmid = team->allgather_dst[ucc_ep_map_eval(team->base_groups[0].map, 0)];
+        shmctl(shmid, IPC_STAT, &ds);
+        team->init_sync = PTR_OFFSET(team->shm_buffers[0],
+                          ds.shm_segsz - sizeof(uint32_t));
+        ucc_atomic_add32(team->init_sync, 1);
         ucc_tl_shm_init_segs(team);
         ucc_free(team->allgather_dst);
-
-        {
-            /* Launching a sync fanin to the leader of the base_group[0].
-               Otherwise, it will immediately finish the team creation and may
-               go to team destruction and segment will be removed from OS
-               before other ranks attached to it. */
-            ucc_base_coll_args_t args = {
-                .mask           = 0,
-                .args.mask      = 0,
-                .args.root      = ucc_ep_map_eval(team->base_groups[0].map, 0),
-                .args.coll_type = UCC_COLL_TYPE_FANIN,
-                .team           = UCC_TL_CORE_TEAM(team),
-            };
-            status = ucc_tl_shm_fanin_init(&args, tl_team, &team->init_fanin_task);
-            if (status < 0 ) {
-                tl_error(UCC_TL_TEAM_LIB(team), "failed to init sync fanin: %s",
-                         ucc_status_string(status));
-                return status;
-            }
-
-            status = ucc_collective_post(&team->init_fanin_task->super);
-            if (status < 0 ) {
-                tl_error(UCC_TL_TEAM_LIB(team), "failed to post sync fanin: %s",
-                         ucc_status_string(status));
-                return status;
-            }
-        }
     }
 
-    status = ucc_collective_test(&team->init_fanin_task->super);
-    if (status < 0) {
-        tl_error(UCC_TL_TEAM_LIB(team), "failure during sync fanin: %s",
-                 ucc_status_string(status));
-        return status;
-    } else if (UCC_INPROGRESS == status) {
+    if (*team->init_sync != UCC_TL_TEAM_SIZE(team)) {
         return UCC_INPROGRESS;
     }
-    ucc_collective_finalize(&team->init_fanin_task->super);
 
     team->status = UCC_OK;
     return UCC_OK;
