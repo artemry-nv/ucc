@@ -223,7 +223,7 @@ typedef struct ucc_tl_shm_team {
     ucc_status_t              status;
     int *                     allgather_dst;
     void *                    oob_req;
-    ucc_coll_task_t          *init_fanin_task;
+    volatile uint32_t        *init_sync;
     perf_params_fn_t          perf_params_bcast;
     perf_params_fn_t          perf_params_reduce;
 } ucc_tl_shm_team_t;
