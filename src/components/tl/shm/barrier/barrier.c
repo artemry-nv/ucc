@@ -54,6 +54,7 @@ next_stage:
         task->seq_num++; /* finished fanin, need seq_num to be updated for fanout */
         goto next_stage;
     case BARRIER_STAGE_TOP_TREE_FANOUT:
+        // coverity[var_deref_model]
         SHMCHECK_GOTO(ucc_tl_shm_fanout_signal(team, seg, task, tree->top_tree),
                       task, out);
         if (tree->base_tree) {
@@ -62,6 +63,7 @@ next_stage:
         }
         break;
     case BARRIER_STAGE_BASE_TREE_FANOUT:
+        // coverity[var_deref_model]
         SHMCHECK_GOTO(ucc_tl_shm_fanout_signal(team, seg, task, tree->base_tree),
                       task, out);
         break;

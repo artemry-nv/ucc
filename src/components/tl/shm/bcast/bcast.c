@@ -228,10 +228,12 @@ next_stage:
             SHMCHECK_GOTO(ucc_tl_shm_bcast_read(team, seg, task, tree->base_tree,
                           is_inline, &is_op_root, data_size), task, out);
         }
+        /* fall through */
     case BCAST_STAGE_COPY_OUT:
         ucc_tl_shm_bcast_copy_out(task, data_size);
         task->cur_child = 0;
         task->stage = BCAST_STAGE_READ_CHECK;
+        /* fall through */
     case BCAST_STAGE_READ_CHECK:
         SHMCHECK_GOTO(ucc_tl_shm_bcast_check_read_ready(task), task, out);
         break;
@@ -282,6 +284,7 @@ ucc_status_t ucc_tl_shm_bcast_init(ucc_base_coll_args_t *coll_args,
 
     team->perf_params_bcast(&params.super, task);
 
+    // coverity[uninit_use:FALSE]
     task->progress_alg   = params.progress_alg;
     task->super.post     = ucc_tl_shm_bcast_start;
     task->super.progress = ucc_tl_shm_bcast_progress;
