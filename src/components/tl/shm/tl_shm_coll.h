@@ -21,6 +21,7 @@ typedef struct ucc_tl_shm_task {
     ucc_rank_t                      data_rank;
     ucc_rank_t                      cur_child;
     void *                          src_buf;
+    ucc_ee_executor_t              *executor;
     struct {
         ucc_tl_shm_tree_t *bcast_tree;
         ucc_tl_shm_tree_t *reduce_tree;
