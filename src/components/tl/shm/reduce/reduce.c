@@ -7,32 +7,44 @@
 #include "tl_shm.h"
 #include "reduce.h"
 
-#define EXEC_TASK_WAIT(_etask, ...)                                            \
-    do {                                                                       \
-        if (_etask != NULL) {                                                  \
-            do {                                                               \
-                status = ucc_ee_executor_task_test(_etask);                    \
-            } while (status > 0);                                              \
-            if (status < 0) {                                                  \
-                tl_error(UCC_TASK_LIB(task), "failure in ee task ee task");    \
-                task->super.status = status;                                   \
-                return __VA_ARGS__;                                            \
-            }                                                                  \
-            ucc_ee_executor_task_finalize(_etask);                             \
-            if (ucc_unlikely(status < 0)) {                                    \
-                tl_error(UCC_TASK_LIB(task), "failed to finalize ee task");    \
-                task->super.status = status;                                   \
-                return __VA_ARGS__;                                            \
-            }                                                                  \
-        }                                                                      \
-    } while (0)
-
 enum
 {
     REDUCE_STAGE_START,
     REDUCE_STAGE_BASE_TREE,
     REDUCE_STAGE_TOP_TREE,
 };
+
+static inline ucc_status_t ucc_tl_shm_dt_reduce(void *dst, void **srcs, int n_srcs,
+                                                size_t count, ucc_datatype_t dt,
+                                                ucc_reduction_op_t op, ucc_ee_executor_t *exec)
+{
+    ucc_ee_executor_task_t     *etask;
+    ucc_status_t                status;
+    ucc_ee_executor_task_args_t eargs;
+
+    eargs.flags           = UCC_EEE_TASK_FLAG_REDUCE_SRCS_EXT;
+    eargs.task_type       = UCC_EE_EXECUTOR_TASK_REDUCE;
+    eargs.reduce.dst      = dst;
+    eargs.reduce.srcs_ext = srcs;
+    eargs.reduce.count    = count;
+    eargs.reduce.dt       = dt;
+    eargs.reduce.op       = op;
+    eargs.reduce.n_srcs   = n_srcs;
+
+    status = ucc_ee_executor_task_post(exec, &eargs, &etask);
+    if (ucc_unlikely(UCC_OK != status)) {
+        return status;
+    }
+
+    if (etask) {
+        do {
+            status = ucc_ee_executor_task_test(etask);
+        } while (status > 0);
+        ucc_ee_executor_task_finalize(etask);
+    }
+    return status;
+}
+
 
 ucc_status_t
 ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
@@ -44,12 +56,13 @@ ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
     ucc_tl_shm_sn_t    seq_num   = task->seq_num;
     uint32_t           n_polls   = UCC_TL_SHM_TEAM_LIB(team)->cfg.n_polls;
     ucc_rank_t         root      = (ucc_rank_t)args->root;
-    void *             src1, *src2, *dst;
+    ucc_rank_t         radix     = tree->radix;
+    void              *dst;
     ucc_tl_shm_ctrl_t *child_ctrl, *my_ctrl;
     ucc_rank_t         child;
-    int                i, j, reduced;
+    int                i, j, batch, ready, num_ready;
     ucc_status_t       status;
-    ucc_ee_executor_task_t *etask;
+    void              *srcs[radix];
 
     my_ctrl = ucc_tl_shm_get_ctrl(seg, team, team_rank);
 
@@ -66,46 +79,48 @@ ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
         return UCC_OK;
     }
 
+    num_ready = 0;
     for (i = task->cur_child; i < tree->n_children; i++) {
-        reduced    = 0;
+        batch      = ucc_min(radix - 1, tree->n_children - task->cur_child);
         child      = tree->children[i];
         child_ctrl = ucc_tl_shm_get_ctrl(seg, team, child);
+        ready      = 0;
         for (j = 0; j < n_polls; j++) {
             if (child_ctrl->pi == seq_num) {
-                src1   = is_inline ? child_ctrl->data
-                                   : ucc_tl_shm_get_data(seg, team, child);
-                dst    = (root == team_rank)
-                             ? args->dst.info.buffer
-                             : (is_inline
-                                    ? my_ctrl->data
-                                    : ucc_tl_shm_get_data(seg, team, team_rank));
-                src2   = (task->first_reduce)
-                             ? ((UCC_IS_INPLACE(*args) &&
-                                 root == team_rank) ?
-                                 args->dst.info.buffer : args->src.info.buffer)
-                             : dst;
-                status = ucc_dt_reduce(src1, src2, dst, count, dt, args, 0, 0.0,
-                                       task->executor, &etask);
-
-                if (ucc_unlikely(UCC_OK != status)) {
-                    tl_error(UCC_TASK_LIB(task),
-                             "failed to perform dt reduction");
-                    task->super.super.status = status;
-                    return status;
-                }
-                EXEC_TASK_WAIT(etask, status);
-                ucc_memory_cpu_store_fence();
-                task->first_reduce = 0;
-                reduced            = 1;
+                ready = 1;
+                num_ready++;
+                srcs[num_ready] = is_inline ? child_ctrl->data
+                    : ucc_tl_shm_get_data(seg, team, child);
                 break;
             }
         }
-        if (!reduced) {
-            task->cur_child = i;
+        if (!ready) {
             return UCC_INPROGRESS;
+        }
+        if (num_ready == batch) {
+            dst = ((root == team_rank)
+                   ? args->dst.info.buffer : (is_inline ? my_ctrl->data
+                      : ucc_tl_shm_get_data(seg, team, team_rank)));
+
+            srcs[0] = (task->first_reduce ? ((UCC_IS_INPLACE(*args) &&
+                                              args->root == team_rank)
+                                             ? args->dst.info.buffer
+                                             : args->src.info.buffer) : dst);
+            task->first_reduce = 0;
+            status             = ucc_tl_shm_dt_reduce(dst, srcs, batch + 1,
+                                                      count, dt, args->op,
+                                                      task->executor);
+            if (ucc_unlikely(UCC_OK != status)) {
+                task->super.super.status = status;
+                return status;
+            }
+
+            task->cur_child += batch;
+            num_ready = 0;
         }
     }
     if (tree->parent != UCC_RANK_INVALID) {
+        ucc_memory_cpu_store_fence();
         my_ctrl->pi = seq_num; //signals to parent
     }
     return UCC_OK;
@@ -143,8 +158,7 @@ static void ucc_tl_shm_reduce_progress(ucc_coll_task_t *coll_task)
 next_stage:
     switch (task->stage) {
     case REDUCE_STAGE_START:
-        /* checks if previous collective has completed on the seg
-        TODO: can be optimized if we detect bcast->reduce pattern.*/
+        /* checks if previous collective has completed on the seg */
         SHMCHECK_GOTO(ucc_tl_shm_check_seg_ready(task, tree, 1), task, out);
         if (tree->base_tree) {
             task->stage = REDUCE_STAGE_BASE_TREE;
