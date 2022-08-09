@@ -50,7 +50,8 @@ ucc_tl_shm_perf_params_generic_reduce(ucc_tl_shm_perf_params_t *params,
     {                                                                 \
         ucc_tl_shm_team_t *team      = TASK_TEAM(task);               \
         size_t             data_size =                                \
-            ucc_coll_args_msgsize(&task->super.bargs);                \
+            ucc_coll_args_msgsize(&task->super.bargs.args, 0,         \
+                                  UCC_TL_TEAM_SIZE(team));            \
         ucc_tl_shm_pp_bcast_t *p =                                    \
             ucc_derived_of(params, ucc_tl_shm_pp_bcast_t);            \
                                                                       \
@@ -77,7 +78,8 @@ ucc_tl_shm_perf_params_generic_reduce(ucc_tl_shm_perf_params_t *params,
     {                                                                 \
         ucc_tl_shm_team_t *team      = TASK_TEAM(task);               \
         size_t             data_size =                                \
-            ucc_coll_args_msgsize(&task->super.bargs);                \
+            ucc_coll_args_msgsize(&task->super.bargs.args, 0,         \
+                                  UCC_TL_TEAM_SIZE(team));            \
         ucc_tl_shm_pp_reduce_t *p =                                   \
             ucc_derived_of(params, ucc_tl_shm_pp_reduce_t);           \
                                                                       \
