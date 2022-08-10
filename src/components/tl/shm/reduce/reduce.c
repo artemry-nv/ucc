@@ -7,6 +7,26 @@
 #include "tl_shm.h"
 #include "reduce.h"
 
+#define EXEC_TASK_WAIT(_etask, ...)                                            \
+    do {                                                                       \
+        if (_etask != NULL) {                                                  \
+            do {                                                               \
+                status = ucc_ee_executor_task_test(_etask);                    \
+            } while (status > 0);                                              \
+            if (status < 0) {                                                  \
+                tl_error(UCC_TASK_LIB(task), "failure in ee task ee task");    \
+                task->super.status = status;                                   \
+                return __VA_ARGS__;                                            \
+            }                                                                  \
+            ucc_ee_executor_task_finalize(_etask);                             \
+            if (ucc_unlikely(status < 0)) {                                    \
+                tl_error(UCC_TASK_LIB(task), "failed to finalize ee task");    \
+                task->super.status = status;                                   \
+                return __VA_ARGS__;                                            \
+            }                                                                  \
+        }                                                                      \
+    } while (0)
+
 enum
 {
     REDUCE_STAGE_START,
@@ -29,6 +49,7 @@ ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
     ucc_rank_t         child;
     int                i, j, reduced;
     ucc_status_t       status;
+    ucc_ee_executor_task_t *etask;
 
     my_ctrl = ucc_tl_shm_get_ctrl(seg, team, team_rank);
 
@@ -63,7 +84,8 @@ ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
                                  root == team_rank) ?
                                  args->dst.info.buffer : args->src.info.buffer)
                              : dst;
-                status = ucc_dt_reduce(src1, src2, dst, count, dt, mtype, args);
+                status = ucc_dt_reduce(src1, src2, dst, count, dt, args, 0, 0.0,
+                                       task->executor, &etask);
 
                 if (ucc_unlikely(UCC_OK != status)) {
                     tl_error(UCC_TASK_LIB(task),
@@ -71,6 +93,7 @@ ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
                     task->super.super.status = status;
                     return status;
                 }
+                EXEC_TASK_WAIT(etask, status);
                 ucc_memory_cpu_store_fence();
                 task->first_reduce = 0;
                 reduced            = 1;
@@ -158,9 +181,16 @@ static ucc_status_t ucc_tl_shm_reduce_start(ucc_coll_task_t *coll_task)
 {
     ucc_tl_shm_task_t *task = ucc_derived_of(coll_task, ucc_tl_shm_task_t);
     ucc_tl_shm_team_t *team = TASK_TEAM(task);
+    ucc_status_t       status;
 
     UCC_TL_SHM_PROFILE_REQUEST_EVENT(coll_task, "shm_reduce_start", 0);
     UCC_TL_SHM_SET_SEG_READY_SEQ_NUM(task, team, TASK_ARGS(task).root);
+
+    status = ucc_coll_task_get_executor(coll_task, &task->executor);
+    if (ucc_unlikely(status != UCC_OK)) {
+        return status;
+    }
+
     task->super.status = UCC_INPROGRESS;
     return ucc_progress_queue_enqueue(UCC_TL_CORE_CTX(team)->pq, &task->super);
 }
@@ -185,7 +215,7 @@ ucc_status_t ucc_tl_shm_reduce_init(ucc_base_coll_args_t *coll_args,
     }
 
     team->perf_params_reduce(&params.super, task);
-
+    task->super.flags   |= UCC_COLL_TASK_FLAG_EXECUTOR;
     task->super.post     = ucc_tl_shm_reduce_start;
     task->super.progress = ucc_tl_shm_reduce_progress;
     task->stage          = REDUCE_STAGE_START;
