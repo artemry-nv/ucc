@@ -8,7 +8,7 @@
 
 TL_SHM_PERF_KEY_DECLARE(amd_rome_2_64, AMD, ROME,
                         BCAST_WW, 0, 4, 2, BCAST_WR, 0, 16, 2,
-                        0, 2, 2, 0, 2, 2,
+                        0, 2, 2, 0, 4, 2,
                         SEG_LAYOUT_SOCKET, 2, 8192, 64, 64);
 
 static void ucc_tl_shm_amd_rome_8_16_bcast(ucc_tl_shm_perf_params_t *params,
@@ -25,18 +25,14 @@ static void ucc_tl_shm_amd_rome_8_16_bcast(ucc_tl_shm_perf_params_t *params,
         p->progress_alg         = BCAST_WW;
         p->super.base_radix     = 2;
         p->super.top_radix      = 4;
-    } else if (data_size <= 4096) {
+    } else {
         p->progress_alg         = BCAST_WR;
         p->super.top_radix      = 2;
-        p->super.base_radix     = (data_size > 2048) ? 16 : 4;
-    } else {
-        p->progress_alg         = BCAST_RR;
-        p->super.top_radix      = 8;
-        p->super.base_radix     = 4;
+        p->super.base_radix     = 16;
     }
 }
 
-TL_SHM_PERF_KEY_DECLARE_REDUCE(amd_rome_8_16, 0, 2, 4, 0, 2, 4);
+TL_SHM_PERF_KEY_DECLARE_REDUCE(amd_rome_8_16, 0, 16, 8, 0, 4, 4);
 
 TL_SHM_PERF_KEY_DECLARE_BASE(amd_rome_8_16, AMD, ROME,
                              ucc_tl_shm_amd_rome_8_16_bcast,
