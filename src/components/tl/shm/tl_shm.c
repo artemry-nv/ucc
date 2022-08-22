@@ -94,7 +94,7 @@ static ucc_config_field_t ucc_tl_shm_lib_config_table[] = {
      ucc_offsetof(ucc_tl_shm_lib_config_t, barrier_top_radix),
      UCC_CONFIG_TYPE_UINT},
 
-    {"NPOLLS", "100", "n_polls", ucc_offsetof(ucc_tl_shm_lib_config_t, n_polls),
+    {"NPOLLS", "10000", "n_polls", ucc_offsetof(ucc_tl_shm_lib_config_t, n_polls),
      UCC_CONFIG_TYPE_UINT},
 
     {"MAX_TREES_CACHED", "8", "max num of trees that can be cached on team",

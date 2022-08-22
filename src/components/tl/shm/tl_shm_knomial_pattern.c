@@ -64,4 +64,5 @@ void ucc_tl_shm_kn_tree_init(ucc_rank_t      size,      /* group size */
         *tree_p->children = UCC_RANK_INVALID;
     }
     tree_p->n_children = n_children;
+    tree_p->radix      = radix;
 }

@@ -18,6 +18,7 @@
 typedef struct ucc_kn_tree {
     ucc_rank_t parent;
     ucc_rank_t n_children;
+    ucc_rank_t radix;
     ucc_rank_t children[1];
 } ucc_kn_tree_t;
 
