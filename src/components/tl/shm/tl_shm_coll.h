@@ -30,6 +30,16 @@ typedef struct ucc_tl_shm_task {
 
 ucc_status_t ucc_tl_shm_coll_finalize(ucc_coll_task_t *coll_task);
 
+static inline void
+ucc_tl_shm_set_task_params_at_start(ucc_tl_shm_task_t *task,
+                                    ucc_tl_shm_team_t *team) {
+    task->first_reduce = 1;
+    task->cur_child    = 0;
+    task->seq_num      = team->seq_num++;
+    task->seg          = &team->segs[(task->seq_num % team->n_concurrent) *
+                                     team->n_base_groups];
+}
+
 static inline ucc_tl_shm_task_t *
 ucc_tl_shm_get_task(ucc_base_coll_args_t *coll_args, ucc_tl_shm_team_t *team)
 {
@@ -44,13 +54,8 @@ ucc_tl_shm_get_task(ucc_base_coll_args_t *coll_args, ucc_tl_shm_team_t *team)
 
     UCC_TL_SHM_PROFILE_REQUEST_NEW(task, "tl_shm_task", 0);
     ucc_coll_task_init(&task->super, coll_args, &team->super.super);
-    task->seq_num = team->seq_num++;
-    task->seg =
-        &team->segs[(task->seq_num % team->n_concurrent) * team->n_base_groups];
     task->super.finalize = ucc_tl_shm_coll_finalize;
     task->super.triggered_post = ucc_triggered_post;
-    task->first_reduce         = 1;
-    task->cur_child            = 0;
     return task;
 }
 

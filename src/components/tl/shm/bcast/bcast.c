@@ -251,8 +251,25 @@ out:
 
 static ucc_status_t ucc_tl_shm_bcast_start(ucc_coll_task_t *coll_task)
 {
-    ucc_tl_shm_task_t *task = ucc_derived_of(coll_task, ucc_tl_shm_task_t);
-    ucc_tl_shm_team_t *team = TASK_TEAM(task);
+    ucc_tl_shm_task_t    *task = ucc_derived_of(coll_task, ucc_tl_shm_task_t);
+    ucc_tl_shm_team_t    *team = TASK_TEAM(task);
+    ucc_tl_shm_pp_bcast_t params;
+    ucc_status_t          status;
+
+    ucc_tl_shm_set_task_params_at_start(task, team);
+    team->perf_params_bcast(&params.super, task);
+    task->progress_alg = params.progress_alg;
+    task->stage        = BCAST_STAGE_START;
+
+    status = ucc_tl_shm_tree_init(
+        team, TASK_ARGS(task).root, params.super.base_radix,
+        params.super.top_radix, UCC_COLL_TYPE_BCAST,
+        params.super.base_tree_only, &task->tree);
+
+    if (ucc_unlikely(UCC_OK != status)) {
+        tl_error(UCC_TL_TEAM_LIB(team), "failed to init shm tree");
+        return status;
+    }
 
     UCC_TL_SHM_PROFILE_REQUEST_EVENT(coll_task, "shm_bcast_start", 0);
     UCC_TL_SHM_SET_SEG_READY_SEQ_NUM(task, team, UCC_RANK_INVALID);
@@ -266,12 +283,6 @@ ucc_status_t ucc_tl_shm_bcast_init(ucc_base_coll_args_t *coll_args,
 {
     ucc_tl_shm_team_t *team = ucc_derived_of(tl_team, ucc_tl_shm_team_t);
     ucc_tl_shm_task_t *task;
-    ucc_status_t       status;
-    ucc_tl_shm_pp_bcast_t params;
-
-    if (UCC_IS_PERSISTENT(coll_args->args)) {
-        return UCC_ERR_NOT_SUPPORTED;
-    }
 
     if (UCC_COLL_ARGS_ACTIVE_SET(&coll_args->args)) {
         return UCC_ERR_NOT_SUPPORTED;
@@ -282,23 +293,9 @@ ucc_status_t ucc_tl_shm_bcast_init(ucc_base_coll_args_t *coll_args,
         return UCC_ERR_NO_MEMORY;
     }
 
-    team->perf_params_bcast(&params.super, task);
-
     // coverity[uninit_use:FALSE]
-    task->progress_alg   = params.progress_alg;
     task->super.post     = ucc_tl_shm_bcast_start;
     task->super.progress = ucc_tl_shm_bcast_progress;
-    task->stage          = BCAST_STAGE_START;
-
-    status = ucc_tl_shm_tree_init(
-        team, coll_args->args.root, params.super.base_radix,
-        params.super.top_radix, UCC_COLL_TYPE_BCAST,
-        params.super.base_tree_only, &task->tree);
-
-    if (ucc_unlikely(UCC_OK != status)) {
-        tl_error(UCC_TL_TEAM_LIB(team), "failed to init shm tree");
-        return status;
-    }
 
     *task_h = &task->super;
     return UCC_OK;

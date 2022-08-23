@@ -131,44 +131,14 @@ out:
 
 static ucc_status_t ucc_tl_shm_allreduce_start(ucc_coll_task_t *coll_task)
 {
-    ucc_tl_shm_task_t *task = ucc_derived_of(coll_task, ucc_tl_shm_task_t);
-    ucc_tl_shm_team_t *team = TASK_TEAM(task);
-    ucc_status_t       status;
-
-    UCC_TL_SHM_PROFILE_REQUEST_EVENT(coll_task, "shm_allreduce_start", 0);
-    UCC_TL_SHM_SET_SEG_READY_SEQ_NUM(task, team, UCC_RANK_INVALID);
-
-    status = ucc_coll_task_get_executor(coll_task, &task->executor);
-    if (ucc_unlikely(status != UCC_OK)) {
-        return status;
-    }
-    task->super.status = UCC_INPROGRESS;
-    return ucc_progress_queue_enqueue(UCC_TL_CORE_CTX(team)->pq, &task->super);
-}
-
-ucc_status_t ucc_tl_shm_allreduce_init(ucc_base_coll_args_t *coll_args,
-                                     ucc_base_team_t *     tl_team,
-                                     ucc_coll_task_t **    task_h)
-{
-    ucc_tl_shm_team_t     *team = ucc_derived_of(tl_team, ucc_tl_shm_team_t);
-    ucc_tl_shm_task_t     *task;
-    ucc_status_t           status;
-    ucc_tl_shm_pp_reduce_t params_reduce;
+    ucc_tl_shm_task_t     *task = ucc_derived_of(coll_task, ucc_tl_shm_task_t);
+    ucc_tl_shm_team_t     *team = TASK_TEAM(task);
     ucc_tl_shm_pp_bcast_t  params_bcast;
+    ucc_tl_shm_pp_reduce_t params_reduce;
+    ucc_status_t           status;
 
-    if (UCC_IS_PERSISTENT(coll_args->args) ||
-        coll_args->args.op == UCC_OP_AVG) {
-        return UCC_ERR_NOT_SUPPORTED;
-    }
-
-    task = ucc_tl_shm_get_task(coll_args, team);
-    if (ucc_unlikely(!task)) {
-        return UCC_ERR_NO_MEMORY;
-    }
-    task->super.flags   |= UCC_COLL_TASK_FLAG_EXECUTOR;
-    TASK_ARGS(task).root = 0;
+    ucc_tl_shm_set_task_params_at_start(task, team);
     team->perf_params_bcast(&params_bcast.super, task);
-    // coverity[uninit_use:FALSE]
     task->progress_alg = params_bcast.progress_alg;
 
     status = ucc_tl_shm_tree_init(
@@ -195,10 +165,41 @@ ucc_status_t ucc_tl_shm_allreduce_init(ucc_base_coll_args_t *coll_args,
         return status;
     }
 
+    task->stage = ALLREDUCE_STAGE_START;
+    task->tree  = task->allreduce.reduce_tree;
+
+    UCC_TL_SHM_PROFILE_REQUEST_EVENT(coll_task, "shm_allreduce_start", 0);
+    UCC_TL_SHM_SET_SEG_READY_SEQ_NUM(task, team, UCC_RANK_INVALID);
+
+    status = ucc_coll_task_get_executor(coll_task, &task->executor);
+    if (ucc_unlikely(status != UCC_OK)) {
+        return status;
+    }
+    task->super.status = UCC_INPROGRESS;
+    return ucc_progress_queue_enqueue(UCC_TL_CORE_CTX(team)->pq, &task->super);
+}
+
+ucc_status_t ucc_tl_shm_allreduce_init(ucc_base_coll_args_t *coll_args,
+                                       ucc_base_team_t *     tl_team,
+                                       ucc_coll_task_t **    task_h)
+{
+    ucc_tl_shm_team_t *team = ucc_derived_of(tl_team, ucc_tl_shm_team_t);
+    ucc_tl_shm_task_t *task;
+
+    if (coll_args->args.op == UCC_OP_AVG) {
+        return UCC_ERR_NOT_SUPPORTED;
+    }
+
+    task = ucc_tl_shm_get_task(coll_args, team);
+    if (ucc_unlikely(!task)) {
+        return UCC_ERR_NO_MEMORY;
+    }
+    task->super.flags   |= UCC_COLL_TASK_FLAG_EXECUTOR;
+    TASK_ARGS(task).root = 0;
+
+    // coverity[uninit_use:FALSE]
     task->super.post     = ucc_tl_shm_allreduce_start;
     task->super.progress = ucc_tl_shm_allreduce_progress;
-    task->stage          = ALLREDUCE_STAGE_START;
-    task->tree           = task->allreduce.reduce_tree;
     *task_h              = &task->super;
     return UCC_OK;
 }
