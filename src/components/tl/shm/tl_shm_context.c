@@ -22,7 +22,8 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_context_t,
                               params->context);
 
     status = ucc_mpool_init(&self->req_mp, 0, sizeof(ucc_tl_shm_task_t), 0,
-                            UCC_CACHE_LINE_SIZE, 8, UINT_MAX, NULL,
+                            UCC_CACHE_LINE_SIZE, 8, UINT_MAX,
+                            &ucc_coll_task_mpool_ops,
                             params->thread_mode, "tl_shm_req_mp");
 
     if (UCC_OK != status) {
