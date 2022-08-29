@@ -120,6 +120,7 @@ next_stage:
     task->seq_num--;
     my_ctrl               = ucc_tl_shm_get_ctrl(seg, team, rank);
     my_ctrl->ci           = task->seq_num;
+    my_ctrl->reserved     = 0; //for n_concurrent=1 in reduce, so parent will wait for children
     args->src.info.buffer = task->src_buf;
     /* allreduce done */
     task->super.status = UCC_OK;
