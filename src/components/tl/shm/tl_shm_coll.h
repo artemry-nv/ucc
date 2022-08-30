@@ -30,14 +30,20 @@ typedef struct ucc_tl_shm_task {
 
 ucc_status_t ucc_tl_shm_coll_finalize(ucc_coll_task_t *coll_task);
 
-static inline void
-ucc_tl_shm_set_task_params_at_start(ucc_tl_shm_task_t *task,
-                                    ucc_tl_shm_team_t *team) {
+static inline void ucc_tl_shm_task_reset(ucc_tl_shm_task_t *task,
+                                         ucc_tl_shm_team_t *team,
+                                         ucc_rank_t         root)
+{
+    int seg_id;
+
     task->first_reduce = 1;
     task->cur_child    = 0;
     task->seq_num      = team->seq_num++;
-    task->seg          = &team->segs[(task->seq_num % team->n_concurrent) *
-                                     team->n_base_groups];
+    seg_id             = task->seq_num % team->n_concurrent;
+    task->seg          = &team->segs[seg_id * team->n_base_groups];
+    task->prev         = team->last_posted[seg_id];
+    team->last_posted[seg_id].seq_num     = task->seq_num;
+    team->last_posted[seg_id].reduce_root = root;
 }
 
 static inline ucc_tl_shm_task_t *
@@ -229,12 +235,4 @@ static inline void ucc_tl_shm_signal_to_children(ucc_tl_shm_seg_t * seg,
     }
 }
 
-#define UCC_TL_SHM_SET_SEG_READY_SEQ_NUM(_task, _team, _root)                  \
-    do {                                                                       \
-        int _seg_id                = (_task)->seq_num % (_team)->n_concurrent; \
-                                                                               \
-        (_task)->prev = (_team)->last_posted[_seg_id];                         \
-        (_team)->last_posted[_seg_id].seq_num = task->seq_num;                 \
-        (_team)->last_posted[_seg_id].reduce_root = _root;                     \
-    } while (0)
 #endif
