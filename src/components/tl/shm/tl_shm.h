@@ -119,10 +119,10 @@ UCC_CLASS_DECLARE(ucc_tl_shm_context_t, const ucc_base_context_params_t *,
 typedef uint64_t ucc_tl_shm_sn_t;
 
 typedef struct ucc_tl_shm_ctrl {
-    volatile ucc_tl_shm_sn_t pi;       /* producer index */
+    volatile ucc_tl_shm_sn_t pi;       /* bcast/fanout producer index */
+    volatile ucc_tl_shm_sn_t pi2;      /* reduce/fanin consumer index */
     volatile ucc_tl_shm_sn_t ci;       /* consumer index */
     volatile ucc_tl_shm_sn_t rr;       /* consumer index */
-    volatile ucc_tl_shm_sn_t reserved; /* consumer index */
     char                     data[1];  /* start of inline data */
 } ucc_tl_shm_ctrl_t;
 

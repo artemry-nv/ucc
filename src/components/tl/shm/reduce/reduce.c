@@ -75,8 +75,7 @@ ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
             memcpy(dst, args->src.info.buffer, count * ucc_dt_size(dt));
             ucc_memory_cpu_store_fence();
         }
-        my_ctrl->pi       = seq_num; //signals to parent
-        my_ctrl->reserved = 1; //for n_concurrent=1 in reduce, so parent will wait for children
+        my_ctrl->pi2 = seq_num; //signals to parent
         return UCC_OK;
     }
 
@@ -87,7 +86,7 @@ ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
         child_ctrl = ucc_tl_shm_get_ctrl(seg, team, child);
         ready      = 0;
         for (j = 0; j < n_polls; j++) {
-            if (child_ctrl->pi == seq_num && child_ctrl->reserved) {
+            if (child_ctrl->pi2 == seq_num) {
                 ready = 1;
                 num_ready++;
                 srcs[num_ready] = is_inline ? child_ctrl->data
@@ -122,8 +121,7 @@ ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
     }
     if (tree->parent != UCC_RANK_INVALID) {
         ucc_memory_cpu_store_fence();
-        my_ctrl->pi       = seq_num; //signals to parent
-        my_ctrl->reserved = 1; //for n_concurrent=1 in reduce, so parent will wait for children
+        my_ctrl->pi2 = seq_num; //signals to parent
     }
     return UCC_OK;
 }

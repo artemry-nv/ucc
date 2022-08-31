@@ -44,14 +44,12 @@ next_stage:
             task->stage = BARRIER_STAGE_TOP_TREE_FANIN;
         } else {
             task->stage = BARRIER_STAGE_BASE_TREE_FANOUT;
-            task->seq_num++; /* finished fanin, need seq_num to be updated for fanout */
         }
         goto next_stage;
     case BARRIER_STAGE_TOP_TREE_FANIN:
         SHMCHECK_GOTO(ucc_tl_shm_fanin_signal(team, seg, task, tree->top_tree),
                       task, out);
         task->stage = BARRIER_STAGE_TOP_TREE_FANOUT;
-        task->seq_num++; /* finished fanin, need seq_num to be updated for fanout */
         goto next_stage;
     case BARRIER_STAGE_TOP_TREE_FANOUT:
         // coverity[var_deref_model]
@@ -70,10 +68,7 @@ next_stage:
     }
 
     my_ctrl = ucc_tl_shm_get_ctrl(seg, team, rank);
-    /* task->seq_num was updated between fanin and fanout, now needs to be
-       rewinded to fit general collectives order, as barrier is actually
-        a single collective */
-    my_ctrl->ci = task->seq_num - 1;
+    my_ctrl->ci = task->seq_num;
     /* barrier done */
     task->super.status = UCC_OK;
     UCC_TL_SHM_PROFILE_REQUEST_EVENT(coll_task, "shm_barrier_progress_done", 0);
