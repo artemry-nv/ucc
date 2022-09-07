@@ -25,7 +25,7 @@ static inline ucc_status_t ucc_tl_shm_fanin_signal(ucc_tl_shm_team_t *team,
         child      = tree->children[i];
         child_ctrl = ucc_tl_shm_get_ctrl(seg, team, child);
         for (j = 0; j < n_polls; j++) {
-            if (child_ctrl->pi == seq_num) {
+            if (child_ctrl->pi2 == seq_num) {
                 break;
             }
         }
@@ -36,8 +36,8 @@ static inline ucc_status_t ucc_tl_shm_fanin_signal(ucc_tl_shm_team_t *team,
     }
     if (tree->parent != UCC_RANK_INVALID) {
         /* signals to parent */
-        my_ctrl     = ucc_tl_shm_get_ctrl(seg, team, team_rank);
-        my_ctrl->pi = seq_num;
+        my_ctrl      = ucc_tl_shm_get_ctrl(seg, team, team_rank);
+        my_ctrl->pi2 = seq_num;
     }
     task->cur_child = 0;
     return UCC_OK;

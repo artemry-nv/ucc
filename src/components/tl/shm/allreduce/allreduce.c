@@ -27,7 +27,6 @@ ucc_tl_shm_allreduce_bcast_prep(ucc_coll_args_t   *args,
     task->stage = bcast_tree->top_tree ? ALLREDUCE_STAGE_TOP_TREE_BCAST :
                                          ALLREDUCE_STAGE_BASE_TREE_BCAST;
     task->tree = bcast_tree;
-    task->seq_num++; /* finished reduce, need seq_num to be updated for bcast */
 }
 
 static void ucc_tl_shm_allreduce_progress(ucc_coll_task_t *coll_task)
@@ -115,9 +114,6 @@ next_stage:
         break;
     }
 
-    /* task->seq_num was updated between reduce and bcast, needs to be reset
-       to fit general collectives order, as allreduce is a single collective */
-    task->seq_num--;
     my_ctrl               = ucc_tl_shm_get_ctrl(seg, team, rank);
     my_ctrl->ci           = task->seq_num;
     args->src.info.buffer = task->src_buf;
