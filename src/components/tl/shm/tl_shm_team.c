@@ -635,6 +635,7 @@ ucc_status_t ucc_tl_shm_team_get_scores(ucc_base_team_t *  tl_team,
     size_t              ctrl_size = UCC_TL_SHM_TEAM_LIB(team)->cfg.ctrl_size;
     size_t              inline_size = ctrl_size - sizeof(ucc_tl_shm_ctrl_t);
     size_t              max_size    = ucc_max(inline_size, data_size);
+    ucc_memory_type_t   mt          = UCC_MEMORY_TYPE_HOST;
     ucc_coll_score_t *  score;
     ucc_status_t        status;
 
@@ -695,7 +696,7 @@ ucc_status_t ucc_tl_shm_team_get_scores(ucc_base_team_t *  tl_team,
     if (strlen(ctx->score_str) > 0) {
         status = ucc_coll_score_update_from_str(
             ctx->score_str, score, UCC_TL_TEAM_SIZE(team), NULL,
-            tl_team, UCC_TL_SHM_DEFAULT_SCORE, NULL);
+            tl_team, UCC_TL_SHM_DEFAULT_SCORE, NULL, &mt, 1);
 
         /* If INVALID_PARAM - User provided incorrect input - try to proceed */
         if ((status < 0) && (status != UCC_ERR_INVALID_PARAM) &&
