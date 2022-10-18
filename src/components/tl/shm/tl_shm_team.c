@@ -409,14 +409,13 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
 
     self->tree_cache->size = 0;
     group_sbgp_type        = ucc_tl_shm_get_group_sbgp_type(self);
-
-    self->leaders_group = ucc_topo_get_sbgp(self->topo, group_sbgp_type);
+    self->leaders_group    = ucc_topo_get_sbgp(self->topo, group_sbgp_type);
 
     if (self->leaders_group->status == UCC_SBGP_NOT_EXISTS ||
         self->leaders_group->group_size == team_size) {
         self->leaders_group->group_size = 0;
+        self->n_base_groups    = 1;
         self->base_groups   = ucc_topo_get_sbgp(self->topo, UCC_SBGP_NODE);
-        self->n_base_groups = 1;
     } else {
         /* sbgp type is either SOCKET or NUMA
      * depending on the config: grouping type */
@@ -446,6 +445,7 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
             self->is_group_leader = 1;
         }
     }
+    //NOLINTNEXTLINE linter FP, n_base_groups and n_concurrent preset
     self->segs = (ucc_tl_shm_seg_t *)ucc_malloc(
         sizeof(ucc_tl_shm_seg_t) * self->n_base_groups * self->n_concurrent,
         "shm_segs");
@@ -463,7 +463,7 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
         goto err_segs;
     }
 
-    status = ucc_tl_shm_group_rank_map_init(self);
+	status = ucc_tl_shm_group_rank_map_init(self);
     if (UCC_OK != status) {
         goto err_segs;
     }
@@ -485,8 +485,9 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
                                         page_size);
     }
 
-    self->shm_buffers =
-        (void *)ucc_calloc(sizeof(void *), self->n_base_groups, "shm_buffers");
+    //NOLINTNEXTLINE linter FP, n_base_groups preset
+    self->shm_buffers = (void *)ucc_calloc(sizeof(void *), self->n_base_groups,
+                                           "shm_buffers");
     if (!self->shm_buffers) {
         status = UCC_ERR_NO_MEMORY;
         goto err_segs;

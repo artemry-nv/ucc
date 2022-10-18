@@ -40,7 +40,6 @@ static void ucc_tl_shm_allreduce_progress(ucc_coll_task_t *coll_task)
     ucc_tl_shm_seg_t  *seg         = task->seg;
     ucc_tl_shm_tree_t *bcast_tree  = task->allreduce.bcast_tree;
     ucc_tl_shm_tree_t *reduce_tree = task->allreduce.reduce_tree;
-    ucc_memory_type_t  mtype       = args->dst.info.mem_type;
     ucc_datatype_t     dt          = args->dst.info.datatype;
     size_t             count       = args->dst.info.count;
     size_t             data_size   = count * ucc_dt_size(dt);
@@ -66,8 +65,9 @@ next_stage:
         goto next_stage;
     case ALLREDUCE_STAGE_BASE_TREE_REDUCE:
         // coverity[var_deref_model]
-        SHMCHECK_GOTO(ucc_tl_shm_reduce_read(team, seg, task, reduce_tree->base_tree,
-                      is_inline, count, dt, mtype, args), task, out);
+        SHMCHECK_GOTO(ucc_tl_shm_reduce_read(team, seg, task,
+                                             reduce_tree->base_tree, is_inline,
+                                             count, dt, args), task, out);
         task->cur_child = 0;
         if (reduce_tree->top_tree) {
             task->stage = ALLREDUCE_STAGE_TOP_TREE_REDUCE;
@@ -77,8 +77,9 @@ next_stage:
         goto next_stage;
     case ALLREDUCE_STAGE_TOP_TREE_REDUCE:
         // coverity[var_deref_model]
-        SHMCHECK_GOTO(ucc_tl_shm_reduce_read(team, seg, task, reduce_tree->top_tree,
-                      is_inline, count, dt, mtype, args), task, out);
+        SHMCHECK_GOTO(ucc_tl_shm_reduce_read(team, seg, task,
+                                             reduce_tree->top_tree, is_inline,
+                                             count, dt, args), task, out);
         ucc_tl_shm_allreduce_bcast_prep(args, task, bcast_tree);
         goto next_stage;
     case ALLREDUCE_STAGE_TOP_TREE_BCAST:
