@@ -208,6 +208,8 @@ typedef struct ucc_tl_shm_team {
     uint32_t                  my_group_id;
     int                       n_concurrent;
     int                       is_group_leader;
+    int                       need_free_group_rank_map;
+    int                       need_free_rank_group_id_map;
     ucc_sbgp_t *              base_groups;
     ucc_sbgp_t *              leaders_group;
     ucc_topo_t *              topo;

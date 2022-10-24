@@ -58,6 +58,9 @@ static ucc_status_t ucc_tl_shm_rank_group_id_map_init(ucc_tl_shm_team_t *team)
     }
     team->rank_group_id_map =
         ucc_ep_map_from_array(&ranks, team_size, team_size, 1);
+    if (ranks) {
+        team->need_free_rank_group_id_map = 1;
+    }
     return UCC_OK;
 }
 
@@ -91,6 +94,9 @@ static ucc_status_t ucc_tl_shm_group_rank_map_init(ucc_tl_shm_team_t *team)
     }
     team->group_rank_map =
         ucc_ep_map_from_array(&ranks, team_size, team_size, 1);
+    if (ranks) {
+        team->need_free_group_rank_map = 1;
+    }
     return UCC_OK;
 }
 
@@ -364,6 +370,8 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
     self->arch_data_size     = UCC_TL_SHM_TEAM_LIB(self)->cfg.data_size;
     self->max_inline         = cfg_ctrl_size - ucc_offsetof(ucc_tl_shm_ctrl_t,
                                                             data);
+    self->need_free_rank_group_id_map = 0;
+    self->need_free_group_rank_map = 0;
     status = ucc_topo_init(subset, UCC_TL_CORE_CTX(self)->topo, &self->topo);
 
     if (UCC_OK != status) {
@@ -409,8 +417,7 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
 
     self->tree_cache->size = 0;
     group_sbgp_type        = ucc_tl_shm_get_group_sbgp_type(self);
-
-    self->leaders_group = ucc_topo_get_sbgp(self->topo, group_sbgp_type);
+    self->leaders_group    = ucc_topo_get_sbgp(self->topo, group_sbgp_type);
 
     if (self->leaders_group->status == UCC_SBGP_NOT_EXISTS ||
         self->leaders_group->group_size == team_size) {
@@ -446,6 +453,7 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
             self->is_group_leader = 1;
         }
     }
+    //NOLINTNEXTLINE linter FP, n_base_groups and n_concurrent preset
     self->segs = (ucc_tl_shm_seg_t *)ucc_malloc(
         sizeof(ucc_tl_shm_seg_t) * self->n_base_groups * self->n_concurrent,
         "shm_segs");
@@ -465,7 +473,7 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
 
     status = ucc_tl_shm_group_rank_map_init(self);
     if (UCC_OK != status) {
-        goto err_segs;
+        goto err_group_id_map;
     }
 
     self->my_group_id =
@@ -485,11 +493,12 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
                                         page_size);
     }
 
-    self->shm_buffers =
-        (void *)ucc_calloc(sizeof(void *), self->n_base_groups, "shm_buffers");
+    //NOLINTNEXTLINE linter FP, n_base_groups preset
+    self->shm_buffers = (void *)ucc_calloc(sizeof(void *), self->n_base_groups,
+                                           "shm_buffers");
     if (!self->shm_buffers) {
         status = UCC_ERR_NO_MEMORY;
-        goto err_segs;
+        goto err_ranks_map;
     }
 
     status = ucc_tl_shm_seg_alloc(self);
@@ -498,9 +507,18 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
     }
     return UCC_OK;
 
-    //TODO
 err_buffers:
     ucc_free(self->shm_buffers);
+err_ranks_map:
+    if (self->need_free_group_rank_map) {
+        ucc_free(self->group_rank_map.array.map);
+        self->need_free_group_rank_map = 0;
+    }
+err_group_id_map:
+    if (self->need_free_rank_group_id_map) {
+        ucc_free(self->rank_group_id_map.array.map);
+        self->need_free_rank_group_id_map = 0;
+    }
 err_segs:
     ucc_free(self->segs);
 err_sockets:
@@ -545,6 +563,12 @@ ucc_status_t ucc_tl_shm_team_destroy(ucc_base_team_t *tl_team)
     }
     ucc_free(team->tree_cache->elems);
     ucc_free(team->tree_cache);
+    if (team->need_free_group_rank_map) {
+        ucc_free(team->group_rank_map.array.map);
+    }
+    if (team->need_free_rank_group_id_map) {
+        ucc_free(team->rank_group_id_map.array.map);
+    }
     ucc_free(team->segs);
     ucc_free(team->last_posted);
     ucc_ep_map_destroy_nested(&team->ctx_map);

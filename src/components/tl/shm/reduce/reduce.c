@@ -50,7 +50,7 @@ ucc_status_t
 ucc_tl_shm_reduce_read(ucc_tl_shm_team_t *team, ucc_tl_shm_seg_t *seg,
                        ucc_tl_shm_task_t *task, ucc_kn_tree_t *tree,
                        int is_inline, size_t count, ucc_datatype_t dt,
-                       ucc_memory_type_t mtype, ucc_coll_args_t *args)
+                       ucc_coll_args_t *args)
 {
     ucc_rank_t         team_rank = UCC_TL_TEAM_RANK(team);
     ucc_tl_shm_sn_t    seq_num   = task->seq_num;
@@ -132,24 +132,20 @@ static void ucc_tl_shm_reduce_progress(ucc_coll_task_t *coll_task)
     ucc_tl_shm_team_t *team = TASK_TEAM(task);
     ucc_coll_args_t    args = TASK_ARGS(task);
     ucc_rank_t         rank = UCC_TL_TEAM_RANK(team);
-
-    ucc_memory_type_t  mtype;
-    ucc_datatype_t     dt;
-    size_t             count, data_size;
     ucc_rank_t         root = (ucc_rank_t)args.root;
     ucc_tl_shm_seg_t * seg  = task->seg;
     ucc_tl_shm_tree_t *tree = task->tree;
-    int                is_inline;
     int                is_op_root = rank == root;
+    int                is_inline;
+    ucc_datatype_t     dt;
+    size_t             count, data_size;
     ucc_tl_shm_ctrl_t *my_ctrl;
 
     if (is_op_root) {
         count = args.dst.info.count;
-        mtype = args.dst.info.mem_type;
         dt    = args.dst.info.datatype;
     } else {
         count = args.src.info.count;
-        mtype = args.src.info.mem_type;
         dt    = args.src.info.datatype;
     }
     data_size = count * ucc_dt_size(dt);
@@ -168,7 +164,7 @@ next_stage:
         goto next_stage;
     case REDUCE_STAGE_BASE_TREE:
         SHMCHECK_GOTO(ucc_tl_shm_reduce_read(team, seg, task, tree->base_tree,
-                      is_inline, count, dt, mtype, &args), task, out);
+                      is_inline, count, dt, &args), task, out);
         task->cur_child = 0;
         if (tree->top_tree) {
             task->stage = REDUCE_STAGE_TOP_TREE;
@@ -177,7 +173,7 @@ next_stage:
         break;
     case REDUCE_STAGE_TOP_TREE:
         SHMCHECK_GOTO(ucc_tl_shm_reduce_read(team, seg, task, tree->top_tree,
-                      is_inline, count, dt, mtype, &args), task, out);
+                      is_inline, count, dt, &args), task, out);
         break;
     }
 
