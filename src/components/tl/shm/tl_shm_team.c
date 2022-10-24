@@ -422,8 +422,8 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
     if (self->leaders_group->status == UCC_SBGP_NOT_EXISTS ||
         self->leaders_group->group_size == team_size) {
         self->leaders_group->group_size = 0;
-        self->n_base_groups    = 1;
         self->base_groups   = ucc_topo_get_sbgp(self->topo, UCC_SBGP_NODE);
+        self->n_base_groups = 1;
     } else {
         /* sbgp type is either SOCKET or NUMA
      * depending on the config: grouping type */
@@ -471,7 +471,7 @@ UCC_CLASS_INIT_FUNC(ucc_tl_shm_team_t, ucc_base_context_t *tl_context,
         goto err_segs;
     }
 
-	status = ucc_tl_shm_group_rank_map_init(self);
+    status = ucc_tl_shm_group_rank_map_init(self);
     if (UCC_OK != status) {
         goto err_group_id_map;
     }
